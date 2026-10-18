@@ -30,19 +30,19 @@
     html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 13px; overflow: hidden; }
 
     #app {
-      display: grid;
-      grid-template-columns: 320px 1fr 280px;
-      grid-template-rows: 48px 1fr 220px;
+      display: flex;
+      flex-direction: column;
       height: 100vh;
-      gap: 0;
     }
 
+    /* ── HEADER ── */
     #header {
-      grid-column: 1 / -1;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 16px;
       padding: 0 20px;
+      height: 48px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
     }
@@ -74,8 +74,27 @@
     #speed-range { width: 80px; }
     #speed-val { color: var(--accent2); font-size: 11px; min-width: 30px; }
 
+    .zoom-group {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin-left: 8px;
+      border-left: 1px solid var(--border);
+      padding-left: 8px;
+    }
+    .zoom-group span { color: var(--muted); font-size: 11px; }
+    .btn-zoom { padding: 2px 9px; font-size: 14px; font-weight: 700; border-radius: 4px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; line-height: 1.4; }
+    .btn-zoom:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    /* ── MIDDLE ── */
+    #middle {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 320px 1fr 280px;
+    }
+
     #left-panel {
-      grid-row: 2 / 3;
       background: var(--surface);
       border-right: 1px solid var(--border);
       overflow-y: auto;
@@ -127,7 +146,7 @@
       font-size: 11px;
     }
 
-    #canvas-area { grid-row: 2 / 3; position: relative; background: #06060f; }
+    #canvas-area { position: relative; background: #06060f; min-height: 0; }
     #three-canvas { width: 100% !important; height: 100% !important; display: block; }
 
     #tooltip {
@@ -190,7 +209,6 @@
     }
 
     #right-panel {
-      grid-row: 2 / 3;
       background: var(--surface);
       border-left: 1px solid var(--border);
       overflow-y: auto;
@@ -211,30 +229,69 @@
     .chk-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); cursor: pointer; }
     .chk-row input { accent-color: var(--accent2); }
 
+    /* ── RESIZE HANDLE ── */
+    #resize-handle {
+      flex-shrink: 0;
+      height: 6px;
+      background: var(--border);
+      cursor: ns-resize;
+      position: relative;
+      transition: background 0.15s;
+    }
+    #resize-handle:hover, #resize-handle.dragging { background: var(--accent2); }
+    #resize-handle::after {
+      content: '⠿';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 2px;
+      pointer-events: none;
+    }
+
+    /* ── BOTTOM PANEL ── */
     #bottom-panel {
-      grid-column: 1 / -1;
+      flex-shrink: 0;
       background: var(--surface);
       border-top: 1px solid var(--border);
       display: grid;
-      grid-template-columns: 1fr 340px;
-      height: 220px;
+      grid-template-columns: 1fr 400px;
+      overflow: hidden;
     }
-    #chart-wrap { padding: 10px 14px; position: relative; }
-    #chart-canvas { width: 100% !important; height: 190px !important; }
 
-    #log-wrap { border-left: 1px solid var(--border); padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+    #chart-wrap {
+      padding: 10px 14px;
+      position: relative;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    #chart-canvas { width: 100% !important; flex: 1; min-height: 0; }
+
+    #log-wrap {
+      border-left: 1px solid var(--border);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 0;
+    }
     #log-panel {
       flex: 1;
+      min-height: 0;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 10px;
       color: var(--muted);
       padding: 6px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-word;
+      line-height: 1.5;
     }
 
     #error-msg {
@@ -305,124 +362,139 @@
       <button class="btn" id="btn-step">⏭ Passo</button>
       <button class="btn" id="btn-reset">↺ Reiniciar</button>
     </div>
+    <div class="zoom-group">
+      <span>Zoom:</span>
+      <button class="btn-zoom" id="btn-zoom-in"  title="Aproximar">+</button>
+      <button class="btn-zoom" id="btn-zoom-out" title="Afastar">−</button>
+      <button class="btn-zoom" id="btn-zoom-reset" title="Centralizar">⌖</button>
+    </div>
   </header>
 
-  <aside id="left-panel">
-    <div>
-      <div class="section-title">Parâmetros ACO</div>
-      <div class="param-grid">
-        <div class="field-row">
-          <label>α — Feromônio <small>(0–5)</small></label>
-          <input type="number" id="alpha" class="param-field" value="1" min="0" max="5" step="0.1"/>
+  <div id="middle">
+
+    <aside id="left-panel">
+      <div>
+        <div class="section-title">Parâmetros ACO</div>
+        <div class="param-grid">
+          <div class="field-row">
+            <label>α — Feromônio <small>(0–5)</small></label>
+            <input type="number" id="alpha" class="param-field" value="1" min="0" max="5" step="0.1"/>
+          </div>
+          <div class="field-row">
+            <label>β — Distância <small>(0–5)</small></label>
+            <input type="number" id="beta" class="param-field" value="2" min="0" max="5" step="0.1"/>
+          </div>
+          <div class="field-row">
+            <label>ρ — Evaporação <small>(0–90%)</small></label>
+            <input type="number" id="rho" class="param-field" value="50" min="0" max="90" step="1"/>
+          </div>
+          <div class="field-row">
+            <label>τ₀ — Ferom. inicial <small>(0.01–100)</small></label>
+            <input type="number" id="tau0" class="param-field" value="1" min="0.01" max="100" step="0.01"/>
+          </div>
+          <div class="field-row">
+            <label>Q — Constante <small>(0.01–10000)</small></label>
+            <input type="number" id="q-val" class="param-field" value="14" min="0.01" max="10000" step="0.01"/>
+          </div>
+          <div class="field-row">
+            <label>Semente aleatória</label>
+            <input type="number" id="seed" class="param-field" value="42" min="0" step="1"/>
+          </div>
+          <div class="field-row">
+            <label>Formigas <small>(1–100)</small></label>
+            <input type="number" id="num-ants" class="param-field" value="10" min="1" max="100" step="1"/>
+          </div>
+          <div class="field-row">
+            <label>Iterações <small>(1–200)</small></label>
+            <input type="number" id="num-iter" class="param-field" value="30" min="1" max="200" step="1"/>
+          </div>
         </div>
         <div class="field-row">
-          <label>β — Distância <small>(0–5)</small></label>
-          <input type="number" id="beta" class="param-field" value="2" min="0" max="5" step="0.1"/>
-        </div>
-        <div class="field-row">
-          <label>ρ — Evaporação <small>(0–90%)</small></label>
-          <input type="number" id="rho" class="param-field" value="50" min="0" max="90" step="1"/>
-        </div>
-        <div class="field-row">
-          <label>τ₀ — Ferom. inicial <small>(0.01–100)</small></label>
-          <input type="number" id="tau0" class="param-field" value="1" min="0.01" max="100" step="0.01"/>
-        </div>
-        <div class="field-row">
-          <label>Q — Constante <small>(0.01–10000)</small></label>
-          <input type="number" id="q-val" class="param-field" value="14" min="0.01" max="10000" step="0.01"/>
-        </div>
-        <div class="field-row">
-          <label>Semente aleatória</label>
-          <input type="number" id="seed" class="param-field" value="42" min="0" step="1"/>
-        </div>
-        <div class="field-row">
-          <label>Formigas <small>(1–100)</small></label>
-          <input type="number" id="num-ants" class="param-field" value="10" min="1" max="100" step="1"/>
-        </div>
-        <div class="field-row">
-          <label>Iterações <small>(1–200)</small></label>
-          <input type="number" id="num-iter" class="param-field" value="30" min="1" max="200" step="1"/>
+          <label>Depósito</label>
+          <select id="depot-select" class="param-field"></select>
         </div>
       </div>
-      <div class="field-row">
-        <label>Depósito</label>
-        <select id="depot-select" class="param-field"></select>
+
+      <div>
+        <div class="section-title">Vértices <small id="vtx-count" style="color:var(--accent2)"></small></div>
+        <table class="vtx-table">
+          <thead><tr><th>ID</th><th>X</th><th>Y</th><th></th></tr></thead>
+          <tbody id="vertex-tbody"></tbody>
+        </table>
+        <div class="add-vtx-row" style="margin-top:8px">
+          <input type="text" id="v-id" placeholder="ID"/>
+          <input type="number" id="v-x" placeholder="X" min="0" max="1000" step="0.01"/>
+          <input type="number" id="v-y" placeholder="Y" min="0" max="1000" step="0.01"/>
+          <button class="btn-sm" id="btn-add-vertex" style="white-space:nowrap">+ Add</button>
+        </div>
       </div>
-    </div>
 
-    <div>
-      <div class="section-title">Vértices <small id="vtx-count" style="color:var(--accent2)"></small></div>
-      <table class="vtx-table">
-        <thead><tr><th>ID</th><th>X</th><th>Y</th><th></th></tr></thead>
-        <tbody id="vertex-tbody"></tbody>
-      </table>
-      <div class="add-vtx-row" style="margin-top:8px">
-        <input type="text" id="v-id" placeholder="ID"/>
-        <input type="number" id="v-x" placeholder="X" min="0" max="1000" step="0.01"/>
-        <input type="number" id="v-y" placeholder="Y" min="0" max="1000" step="0.01"/>
-        <button class="btn-sm" id="btn-add-vertex" style="white-space:nowrap">+ Add</button>
+      <div>
+        <div class="section-title">Visualização</div>
+        <div class="options-row">
+          <label class="chk-row"><input type="checkbox" id="chk-animate-ants" checked/> Animar formigas</label>
+          <label class="chk-row"><input type="checkbox" id="chk-log-steps"/> Log de passos</label>
+          <label class="chk-row"><input type="checkbox" id="chk-log-pheromone" checked/> Log de feromônios</label>
+        </div>
       </div>
-    </div>
+    </aside>
 
-    <div>
-      <div class="section-title">Visualização</div>
-      <div class="options-row">
-        <label class="chk-row"><input type="checkbox" id="chk-animate-ants" checked/> Animar formigas</label>
-        <label class="chk-row"><input type="checkbox" id="chk-log-steps"/> Log de passos</label>
-        <label class="chk-row"><input type="checkbox" id="chk-log-pheromone" checked/> Log de feromônios</label>
+    <main id="canvas-area">
+      <canvas id="three-canvas"></canvas>
+      <div id="tooltip"></div>
+      <div id="reset-banner">⚠ Parâmetros alterados — pressione Reiniciar</div>
+      <div id="status-overlay">
+        <div class="stat-row"><span class="stat-label">Iteração</span><span class="stat-val" id="stat-iter">0 / —</span></div>
+        <div class="stat-row"><span class="stat-label">Melhor acumulada</span><span class="stat-val" id="stat-best">ainda não calculada</span></div>
+        <div class="stat-row"><span class="stat-label">Melhor iteração</span><span class="stat-val" id="stat-iter-best">—</span></div>
+        <div class="stat-row"><span class="stat-label">Média formigas</span><span class="stat-val" id="stat-avg">—</span></div>
+        <div class="stat-route-wrap" id="stat-route">—</div>
       </div>
-    </div>
-  </aside>
+      <div id="tau-legend">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Feromônio nas arestas</div>
+        <div id="gradient-bar"></div>
+        <div class="legend-labels"><span>Baixo</span><span>Alto</span></div>
+        <div style="margin-top:5px;font-size:9px">— Melhor rota <span style="color:var(--accent2)">■</span></div>
+        <div style="font-size:9px;margin-top:2px">🟠 Depósito &nbsp; 🔵 Entrega</div>
+      </div>
+    </main>
 
-  <main id="canvas-area">
-    <canvas id="three-canvas"></canvas>
-    <div id="tooltip"></div>
-    <div id="reset-banner">⚠ Parâmetros alterados — pressione Reiniciar</div>
-    <div id="status-overlay">
-      <div class="stat-row"><span class="stat-label">Iteração</span><span class="stat-val" id="stat-iter">0 / —</span></div>
-      <div class="stat-row"><span class="stat-label">Melhor acumulada</span><span class="stat-val" id="stat-best">ainda não calculada</span></div>
-      <div class="stat-row"><span class="stat-label">Melhor iteração</span><span class="stat-val" id="stat-iter-best">—</span></div>
-      <div class="stat-row"><span class="stat-label">Média formigas</span><span class="stat-val" id="stat-avg">—</span></div>
-      <div class="stat-route-wrap" id="stat-route">—</div>
-    </div>
-    <div id="tau-legend">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Feromônio nas arestas</div>
-      <div id="gradient-bar"></div>
-      <div class="legend-labels"><span>Baixo</span><span>Alto</span></div>
-      <div style="margin-top:5px;font-size:9px">— Melhor rota <span style="color:var(--accent2)">■</span></div>
-      <div style="font-size:9px;margin-top:2px">🟠 Depósito &nbsp; 🔵 Entrega</div>
-    </div>
-  </main>
+    <aside id="right-panel">
+      <div class="section-title">Histórico por iteração</div>
+      <div style="overflow-x:auto">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th>It.</th>
+              <th>Melhor it.</th>
+              <th>Média</th>
+              <th>Best acc.</th>
+              <th style="text-align:left">Rota</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+    </aside>
 
-  <aside id="right-panel">
-    <div class="section-title">Histórico por iteração</div>
-    <div style="overflow-x:auto">
-      <table class="hist-table">
-        <thead>
-          <tr>
-            <th>It.</th>
-            <th>Melhor it.</th>
-            <th>Média</th>
-            <th>Best acc.</th>
-            <th style="text-align:left">Rota</th>
-          </tr>
-        </thead>
-        <tbody id="history-tbody"></tbody>
-      </table>
-    </div>
-  </aside>
+  </div><!-- #middle -->
+
+  <div id="resize-handle"></div>
 
   <div id="bottom-panel">
     <div id="chart-wrap">
       <canvas id="chart-canvas"></canvas>
     </div>
     <div id="log-wrap">
-      <div class="section-title" style="margin-bottom:0">Log de execução</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div class="section-title" style="margin:0;padding:0;border:none">Log de execução</div>
+        <button class="btn-sm" onclick="document.getElementById('log-panel').textContent=''">Limpar</button>
+      </div>
       <pre id="log-panel"></pre>
     </div>
   </div>
 
-</div>
+</div><!-- #app -->
 
 <div id="error-msg"></div>
 
@@ -530,12 +602,72 @@ THREE.OrbitControls = function(camera, domElement) {
 <script src="js/main.js"></script>
 
 <script>
+  // ── Contador de vértices ──────────────────────────────────────────
   setInterval(() => {
     const el = document.getElementById('vtx-count');
     if (el && typeof graph !== 'undefined') {
       el.textContent = `(${graph.n}/12)`;
     }
   }, 500);
+
+  // ── Painel inferior redimensionável ──────────────────────────────
+  (function () {
+    const handle      = document.getElementById('resize-handle');
+    const bottomPanel = document.getElementById('bottom-panel');
+
+    const MIN_H = 80;
+    const MAX_H = 600;
+
+    let dragging = false;
+    let startY   = 0;
+    let startH   = 0;
+
+    bottomPanel.style.height = '300px';
+
+    handle.addEventListener('mousedown', e => {
+      dragging = true;
+      startY   = e.clientY;
+      startH   = bottomPanel.offsetHeight;
+      handle.classList.add('dragging');
+      document.body.style.cursor     = 'ns-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const delta = startY - e.clientY;
+      const newH  = Math.min(MAX_H, Math.max(MIN_H, startH + delta));
+      bottomPanel.style.height = newH + 'px';
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+    });
+  })();
+
+  // ── Botões de zoom ────────────────────────────────────────────────
+  (function () {
+    function zoomBy(factor) {
+      if (!renderer || !renderer.camera || !renderer.controls) return;
+      const cam    = renderer.camera;
+      const target = renderer.controls.target;
+      const dir    = cam.position.clone().sub(target);
+      dir.multiplyScalar(factor);
+      cam.position.copy(target).add(dir);
+      renderer.controls.update();
+    }
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(0.8));
+    document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1.25));
+    document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+      if (renderer && renderer.graph) renderer._centerCamera(renderer.graph);
+    });
+  })();
 </script>
 
 </body>

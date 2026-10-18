@@ -1,12 +1,5 @@
 /**
  * renderer3d.js — Visualização 3D com Three.js
- *
- * Responsabilidades:
- *  - Renderizar vértices como esferas 3D
- *  - Renderizar arestas com espessura/cor proporcional ao feromônio
- *  - Animar formigas se deslocando pelas arestas
- *  - Destacar melhor rota
- *  - Tooltip com distância e feromônio ao passar o mouse
  */
 class Renderer3D {
   constructor(canvasEl) {
@@ -14,29 +7,23 @@ class Renderer3D {
     this.graph = null;
     this.depotId = null;
 
-    // Objetos Three.js
     this.scene = null;
     this.camera = null;
     this.renderer = null;
     this.controls = null;
 
-    // Meshes
-    this.nodeMeshes = {};      // id -> Mesh (esfera)
-    this.edgeMeshes = {};      // "i-j" -> { line, tau }
+    this.nodeMeshes = {};
+    this.edgeMeshes = {};
     this.bestRouteLines = [];
-    this.antMeshes = [];       // formigas animadas
-
-    // Animação de formigas
-    this.antAnimations = [];   // [{mesh, path, t, speed}]
+    this.antMeshes = [];
+    this.antAnimations = [];
     this._animFrame = null;
 
-    // Tooltip
     this.tooltip = document.getElementById('tooltip');
     this.raycaster = null;
     this.mouse = null;
     this.hoveredEdge = null;
 
-    // Feromônio atual para tooltip
     this.currentTau = null;
     this.tauMin = 1e-12;
     this.tauMax = 1;
@@ -48,22 +35,18 @@ class Renderer3D {
     const W = this.canvas.clientWidth || 800;
     const H = this.canvas.clientHeight || 600;
 
-    // Cena
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x060610);
     this.scene.fog = new THREE.Fog(0x060610, 800, 2000);
 
-    // Câmera perspectiva
     this.camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 5000);
-    this.camera.position.set(500, 500, 900);
-    this.camera.lookAt(500, 500, 0);
+    this.camera.position.set(300, 200, 900);
+    this.camera.lookAt(300, 200, 0);
 
-    // Renderer
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
     this.renderer.setSize(W, H);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    // Luzes
     const ambient = new THREE.AmbientLight(0x223366, 1.2);
     this.scene.add(ambient);
     const point = new THREE.PointLight(0xff8844, 2, 2000);
@@ -73,41 +56,35 @@ class Renderer3D {
     point2.position.set(0, 0, 400);
     this.scene.add(point2);
 
-    // Grid sutil no plano base
-    const gridHelper = new THREE.GridHelper(1000, 10, 0x111133, 0x111133);
+    /*const gridHelper = new THREE.GridHelper(1000, 10, 0x111133, 0x111133);
     gridHelper.position.set(500, 0, 500);
     gridHelper.rotation.x = Math.PI / 2;
-    this.scene.add(gridHelper);
+    this.scene.add(gridHelper);*/
 
-    // OrbitControls
     if (THREE.OrbitControls) {
       this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
       this.controls.enableDamping = true;
       this.controls.dampingFactor = 0.08;
-      this.controls.target.set(500, 500, 0);
+      this.controls.target.set(300, 200, 0);
       this.controls.update();
     }
 
-    // Raycaster para tooltip
     this.raycaster = new THREE.Raycaster();
     this.raycaster.params.Line = { threshold: 8 };
     this.mouse = new THREE.Vector2();
 
-    // Eventos
     window.addEventListener('resize', () => this._onResize());
     this.canvas.addEventListener('mousemove', e => this._onMouseMove(e));
     this.canvas.addEventListener('mouseleave', () => {
       if (this.tooltip) this.tooltip.style.display = 'none';
     });
 
-    // Loop de renderização
     this._animate();
   }
 
   _animate() {
     this._animFrame = requestAnimationFrame(() => this._animate());
 
-    // Avança formigas
     const dt = 0.016;
     for (const anim of this.antAnimations) {
       anim.t += anim.speed * dt;
@@ -152,7 +129,6 @@ class Renderer3D {
     if (!this.graph) return;
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    // Coleta todas as linhas de arestas
     const lines = Object.entries(this.edgeMeshes).map(([k, v]) => ({ key: k, line: v.line }));
     const objects = lines.map(l => l.line);
     const hits = this.raycaster.intersectObjects(objects);
@@ -189,31 +165,64 @@ class Renderer3D {
     this.depotId = depotId;
     this.currentTau = tau;
 
-    // Limpa cena (exceto luzes e grid)
     for (const id in this.nodeMeshes) this.scene.remove(this.nodeMeshes[id]);
     for (const k in this.edgeMeshes) this.scene.remove(this.edgeMeshes[k].line);
     this.bestRouteLines.forEach(l => this.scene.remove(l));
     this.antMeshes.forEach(m => this.scene.remove(m));
+
+    // Remove sprites (labels) antigos
+    const sprites = [];
+    this.scene.traverse(o => { if (o.isSprite) sprites.push(o); });
+    sprites.forEach(s => this.scene.remove(s));
+
     this.nodeMeshes = {};
     this.edgeMeshes = {};
     this.bestRouteLines = [];
     this.antAnimations = [];
     this.antMeshes = [];
 
-    // Calcula faixa de tau
     this._updateTauRange(tau, graph);
 
-    // Arestas
     for (let i = 0; i < graph.n; i++) {
       for (let j = i + 1; j < graph.n; j++) {
         this._createEdge(i, j, tau[i][j]);
       }
     }
 
-    // Vértices
     for (const v of graph.vertices) {
       this._createNode(v, depotId);
     }
+
+    // Centraliza câmera no grafo
+    this._centerCamera(graph);
+  }
+
+  /** Centraliza e ajusta a câmera para enquadrar todos os vértices */
+  _centerCamera(graph) {
+    if (!graph.n) return;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    graph.vertices.forEach(v => {
+      if (v.x < minX) minX = v.x;
+      if (v.x > maxX) maxX = v.x;
+      if (v.y < minY) minY = v.y;
+      if (v.y > maxY) maxY = v.y;
+    });
+
+    const cx   = (minX + maxX) / 2;
+    const cy   = (minY + maxY) / 2;
+    const span = Math.max(maxX - minX, maxY - minY, 100);
+    const dist = span * 1.8;
+
+    if (this.controls) {
+      this.controls.target.set(cx, cy, 0);
+      this.controls.update();
+    }
+
+    this.camera.position.set(cx, cy, dist);
+    this.camera.lookAt(cx, cy, 0);
   }
 
   _updateTauRange(tau, graph) {
@@ -234,7 +243,6 @@ class Renderer3D {
   }
 
   _tauColor(t) {
-    // Gradiente: azul escuro → âmbar → laranja brilhante
     const r = Math.round(30 + t * 225);
     const g = Math.round(40 + t * 130);
     const b = Math.round(180 - t * 150);
@@ -246,7 +254,7 @@ class Renderer3D {
     const vj = this.graph.vertices[j];
     const t = this._tauToVisual(tauVal);
     const color = this._tauColor(t);
-    const thickness = 1 + t * 5; // espessura proporcional ao feromônio
+    const thickness = 1 + t * 5;
 
     const mat = new THREE.LineBasicMaterial({ color, linewidth: thickness, transparent: true, opacity: 0.4 + t * 0.5 });
     const geo = new THREE.BufferGeometry().setFromPoints([
@@ -275,7 +283,6 @@ class Renderer3D {
     this.scene.add(mesh);
     this.nodeMeshes[v.id] = mesh;
 
-    // Label (sprite de texto)
     this._addLabel(v.id, v.x, v.y, isDepot);
   }
 
@@ -297,7 +304,6 @@ class Renderer3D {
     this.scene.add(sprite);
   }
 
-  /** Atualiza feromônios nas arestas após uma iteração */
   updatePheromones(tau, graph) {
     this.currentTau = tau;
     this._updateTauRange(tau, graph);
@@ -315,9 +321,7 @@ class Renderer3D {
     }
   }
 
-  /** Destaca a melhor rota com linha brilhante */
   highlightBestRoute(route, graph) {
-    // Remove destaques anteriores
     this.bestRouteLines.forEach(l => this.scene.remove(l));
     this.bestRouteLines = [];
 
@@ -335,13 +339,7 @@ class Renderer3D {
     }
   }
 
-  /**
-   * Lança formigas animadas percorrendo um caminho.
-   * @param {number[][]} routes — lista de rotas (índices de vértices)
-   * @param {number} count — quantas formigas animar (máx 20 para perf)
-   */
   launchAnts(routes, graph) {
-    // Remove formigas anteriores
     this.antMeshes.forEach(m => this.scene.remove(m));
     this.antMeshes = [];
     this.antAnimations = [];
@@ -366,13 +364,12 @@ class Renderer3D {
         mesh,
         path,
         segIndex: 0,
-        t: (k / show), // fase inicial diferente p/ cada formiga
+        t: (k / show),
         speed: 0.4 + Math.random() * 0.3,
       });
     }
   }
 
-  /** Remove todas as formigas animadas */
   clearAnts() {
     this.antMeshes.forEach(m => this.scene.remove(m));
     this.antMeshes = [];
