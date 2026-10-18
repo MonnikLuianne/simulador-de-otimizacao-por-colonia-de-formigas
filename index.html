@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Colônia de Formigas — Simulador ACO</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+  <style>
+    :root {
+      --bg:        #06060f;
+      --surface:   #0d0d1f;
+      --panel:     #111128;
+      --border:    #1e2044;
+      --accent:    #ff7733;
+      --accent2:   #00e5aa;
+      --blue:      #3399ff;
+      --muted:     #6677aa;
+      --text:      #c8d0e8;
+      --text-dim:  #556070;
+      --danger:    #ff4455;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --font-ui:   'Inter', system-ui, sans-serif;
+      --radius:    6px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 13px; overflow: hidden; }
+
+    #app {
+      display: grid;
+      grid-template-columns: 320px 1fr 280px;
+      grid-template-rows: 48px 1fr 220px;
+      height: 100vh;
+      gap: 0;
+    }
+
+    #header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    #header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; color: var(--accent); }
+    #header h1 span { color: var(--text-dim); font-weight: 400; }
+
+    .ctrl-group { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+    .btn {
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: #1a1a35; border-color: var(--muted); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+    .btn.primary:hover { background: #ff9955; }
+    .btn.success { background: var(--accent2); color: #000; border-color: var(--accent2); font-weight: 700; }
+    .btn-sm { padding: 2px 7px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+    .btn-sm:hover { border-color: var(--muted); }
+    .btn-del:hover { background: #3a1020; border-color: var(--danger); color: var(--danger); }
+
+    #speed-label { color: var(--muted); font-size: 11px; }
+    #speed-range { width: 80px; }
+    #speed-val { color: var(--accent2); font-size: 11px; min-width: 30px; }
+
+    #left-panel {
+      grid-row: 2 / 3;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+
+    .field-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+    .field-row label { font-size: 11px; color: var(--muted); }
+    .field-row input, .field-row select {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 12px;
+      font-family: var(--font-ui);
+      width: 100%;
+    }
+    .field-row input:focus, .field-row select:focus { outline: none; border-color: var(--blue); }
+
+    .param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+    .vtx-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .vtx-table th { color: var(--muted); text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+    .vtx-table td { padding: 4px 6px; border-bottom: 1px solid #0e0e22; }
+    .vtx-table tr:hover td { background: #111128; }
+
+    .add-vtx-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 4px; margin-top: 6px; }
+    .add-vtx-row input {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 4px 6px;
+      font-size: 11px;
+    }
+
+    #canvas-area { grid-row: 2 / 3; position: relative; background: #06060f; }
+    #three-canvas { width: 100% !important; height: 100% !important; display: block; }
+
+    #tooltip {
+      position: fixed;
+      display: none;
+      background: rgba(13,13,30,0.95);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--text);
+      pointer-events: none;
+      z-index: 100;
+      line-height: 1.7;
+    }
+    #tooltip b { color: var(--accent2); }
+
+    #tau-legend {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(13,13,30,0.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    #status-overlay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(13,13,30,0.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 11px;
+      line-height: 2;
+      min-width: 220px;
+    }
+    .stat-row { display: flex; justify-content: space-between; gap: 16px; }
+    .stat-label { color: var(--muted); }
+    .stat-val { color: var(--accent2); font-family: var(--font-mono); font-size: 11px; }
+    .stat-route-wrap { color: var(--text); font-family: var(--font-mono); font-size: 10px; word-break: break-all; margin-top: 4px; }
+
+    #reset-banner {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a1505;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: var(--radius);
+      padding: 4px 14px;
+      font-size: 11px;
+      z-index: 10;
+    }
+
+    #right-panel {
+      grid-row: 2 / 3;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hist-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .hist-table th { color: var(--muted); text-align: right; padding: 3px 5px; border-bottom: 1px solid var(--border); font-size: 9px; }
+    .hist-table th:first-child, .hist-table td:first-child { text-align: center; }
+    .hist-table td { padding: 3px 5px; border-bottom: 1px solid #0d0d20; text-align: right; font-family: var(--font-mono); }
+    .hist-table tr:hover td { background: #111128; }
+    .route-cell { text-align: left !important; color: var(--muted); font-size: 9px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .options-row { display: flex; flex-direction: column; gap: 6px; }
+    .chk-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); cursor: pointer; }
+    .chk-row input { accent-color: var(--accent2); }
+
+    #bottom-panel {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      height: 220px;
+    }
+    #chart-wrap { padding: 10px 14px; position: relative; }
+    #chart-canvas { width: 100% !important; height: 190px !important; }
+
+    #log-wrap { border-left: 1px solid var(--border); padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+    #log-panel {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--muted);
+      padding: 6px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #error-msg {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a0810;
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      border-radius: var(--radius);
+      padding: 8px 20px;
+      font-size: 12px;
+      z-index: 200;
+    }
+
+    #edit-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 300;
+    }
+    .modal-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      min-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-box h3 { font-size: 14px; color: var(--accent2); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    #gradient-bar {
+      width: 120px;
+      height: 10px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #1e28b4, #ff8833, #ff3300);
+      margin: 4px 0 2px;
+    }
+    .legend-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <header id="header">
+    <h1>🐜 Colônia de Formigas <span>— Simulador ACO 3D</span></h1>
+    <div class="ctrl-group">
+      <label id="speed-label">Velocidade:</label>
+      <input type="range" id="speed-range" min="0" max="1000" step="50" value="300"/>
+      <span id="speed-val">300ms</span>
+      <button class="btn primary" id="btn-run">▶ Executar</button>
+      <button class="btn" id="btn-pause" disabled>⏸ Pausar</button>
+      <button class="btn" id="btn-step">⏭ Passo</button>
+      <button class="btn" id="btn-reset">↺ Reiniciar</button>
+    </div>
+  </header>
+
+  <aside id="left-panel">
+    <div>
+      <div class="section-title">Parâmetros ACO</div>
+      <div class="param-grid">
+        <div class="field-row">
+          <label>α — Feromônio <small>(0–5)</small></label>
+          <input type="number" id="alpha" class="param-field" value="1" min="0" max="5" step="0.1"/>
+        </div>
+        <div class="field-row">
+          <label>β — Distância <small>(0–5)</small></label>
+          <input type="number" id="beta" class="param-field" value="2" min="0" max="5" step="0.1"/>
+        </div>
+        <div class="field-row">
+          <label>ρ — Evaporação <small>(0–90%)</small></label>
+          <input type="number" id="rho" class="param-field" value="50" min="0" max="90" step="1"/>
+        </div>
+        <div class="field-row">
+          <label>τ₀ — Ferom. inicial <small>(0.01–100)</small></label>
+          <input type="number" id="tau0" class="param-field" value="1" min="0.01" max="100" step="0.01"/>
+        </div>
+        <div class="field-row">
+          <label>Q — Constante <small>(0.01–10000)</small></label>
+          <input type="number" id="q-val" class="param-field" value="14" min="0.01" max="10000" step="0.01"/>
+        </div>
+        <div class="field-row">
+          <label>Semente aleatória</label>
+          <input type="number" id="seed" class="param-field" value="42" min="0" step="1"/>
+        </div>
+        <div class="field-row">
+          <label>Formigas <small>(1–100)</small></label>
+          <input type="number" id="num-ants" class="param-field" value="10" min="1" max="100" step="1"/>
+        </div>
+        <div class="field-row">
+          <label>Iterações <small>(1–200)</small></label>
+          <input type="number" id="num-iter" class="param-field" value="30" min="1" max="200" step="1"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <label>Depósito</label>
+        <select id="depot-select" class="param-field"></select>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Vértices <small id="vtx-count" style="color:var(--accent2)"></small></div>
+      <table class="vtx-table">
+        <thead><tr><th>ID</th><th>X</th><th>Y</th><th></th></tr></thead>
+        <tbody id="vertex-tbody"></tbody>
+      </table>
+      <div class="add-vtx-row" style="margin-top:8px">
+        <input type="text" id="v-id" placeholder="ID"/>
+        <input type="number" id="v-x" placeholder="X" min="0" max="1000" step="0.01"/>
+        <input type="number" id="v-y" placeholder="Y" min="0" max="1000" step="0.01"/>
+        <button class="btn-sm" id="btn-add-vertex" style="white-space:nowrap">+ Add</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Visualização</div>
+      <div class="options-row">
+        <label class="chk-row"><input type="checkbox" id="chk-animate-ants" checked/> Animar formigas</label>
+        <label class="chk-row"><input type="checkbox" id="chk-log-steps"/> Log de passos</label>
+        <label class="chk-row"><input type="checkbox" id="chk-log-pheromone" checked/> Log de feromônios</label>
+      </div>
+    </div>
+  </aside>
+
+  <main id="canvas-area">
+    <canvas id="three-canvas"></canvas>
+    <div id="tooltip"></div>
+    <div id="reset-banner">⚠ Parâmetros alterados — pressione Reiniciar</div>
+    <div id="status-overlay">
+      <div class="stat-row"><span class="stat-label">Iteração</span><span class="stat-val" id="stat-iter">0 / —</span></div>
+      <div class="stat-row"><span class="stat-label">Melhor acumulada</span><span class="stat-val" id="stat-best">ainda não calculada</span></div>
+      <div class="stat-row"><span class="stat-label">Melhor iteração</span><span class="stat-val" id="stat-iter-best">—</span></div>
+      <div class="stat-row"><span class="stat-label">Média formigas</span><span class="stat-val" id="stat-avg">—</span></div>
+      <div class="stat-route-wrap" id="stat-route">—</div>
+    </div>
+    <div id="tau-legend">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Feromônio nas arestas</div>
+      <div id="gradient-bar"></div>
+      <div class="legend-labels"><span>Baixo</span><span>Alto</span></div>
+      <div style="margin-top:5px;font-size:9px">— Melhor rota <span style="color:var(--accent2)">■</span></div>
+      <div style="font-size:9px;margin-top:2px">🟠 Depósito &nbsp; 🔵 Entrega</div>
+    </div>
+  </main>
+
+  <aside id="right-panel">
+    <div class="section-title">Histórico por iteração</div>
+    <div style="overflow-x:auto">
+      <table class="hist-table">
+        <thead>
+          <tr>
+            <th>It.</th>
+            <th>Melhor it.</th>
+            <th>Média</th>
+            <th>Best acc.</th>
+            <th style="text-align:left">Rota</th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody"></tbody>
+      </table>
+    </div>
+  </aside>
+
+  <div id="bottom-panel">
+    <div id="chart-wrap">
+      <canvas id="chart-canvas"></canvas>
+    </div>
+    <div id="log-wrap">
+      <div class="section-title" style="margin-bottom:0">Log de execução</div>
+      <pre id="log-panel"></pre>
+    </div>
+  </div>
+
+</div>
+
+<div id="error-msg"></div>
+
+<div id="edit-modal">
+  <div class="modal-box">
+    <h3>Editar vértice</h3>
+    <input type="hidden" id="edit-old-id"/>
+    <div class="field-row"><label>ID</label><input type="text" id="edit-id"/></div>
+    <div class="field-row"><label>X</label><input type="number" id="edit-x" min="0" max="1000" step="0.01"/></div>
+    <div class="field-row"><label>Y</label><input type="number" id="edit-y" min="0" max="1000" step="0.01"/></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-edit-cancel">Cancelar</button>
+      <button class="btn success" id="btn-edit-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+THREE.OrbitControls = function(camera, domElement) {
+  this.camera = camera;
+  this.domElement = domElement;
+  this.target = new THREE.Vector3();
+  this.enableDamping = true;
+  this.dampingFactor = 0.05;
+  this.minDistance = 50;
+  this.maxDistance = 3000;
+
+  let _spherical = new THREE.Spherical();
+  let _sphericalDelta = new THREE.Spherical();
+  let _scale = 1;
+  let _rotateStart = new THREE.Vector2();
+  let _rotating = false;
+  let _panStart = new THREE.Vector2();
+  let _panning = false;
+  let _panOffset = new THREE.Vector3();
+  let _panDelta = new THREE.Vector2();
+
+  const _offset = new THREE.Vector3();
+  const _quat = new THREE.Quaternion().setFromUnitVectors(camera.up, new THREE.Vector3(0,1,0));
+  const _quatInverse = _quat.clone().invert();
+
+  domElement.addEventListener('contextmenu', e => e.preventDefault());
+  domElement.addEventListener('mousedown', e => {
+    if (e.button === 0) { _rotating = true; _rotateStart.set(e.clientX, e.clientY); }
+    if (e.button === 2) { _panning = true; _panStart.set(e.clientX, e.clientY); }
+  });
+  window.addEventListener('mouseup', () => { _rotating = false; _panning = false; });
+  window.addEventListener('mousemove', e => {
+    if (_rotating) {
+      const dx = e.clientX - _rotateStart.x;
+      const dy = e.clientY - _rotateStart.y;
+      _sphericalDelta.theta -= 2 * Math.PI * dx / domElement.clientWidth;
+      _sphericalDelta.phi -= 2 * Math.PI * dy / domElement.clientHeight;
+      _rotateStart.set(e.clientX, e.clientY);
+    }
+    if (_panning) {
+      _panDelta.set(e.clientX - _panStart.x, e.clientY - _panStart.y);
+      const el = domElement.clientHeight;
+      const dist = camera.position.distanceTo(this.target);
+      const fov = camera.fov * Math.PI / 180;
+      const h = 2 * Math.tan(fov / 2) * dist;
+      _panOffset.x -= _panDelta.x / el * h * camera.aspect;
+      _panOffset.y += _panDelta.y / el * h;
+      _panStart.set(e.clientX, e.clientY);
+    }
+  });
+  domElement.addEventListener('wheel', e => {
+    if (e.deltaY < 0) _scale /= 1.1; else _scale *= 1.1;
+    e.preventDefault();
+  }, { passive: false });
+
+  this.update = function() {
+    _offset.copy(camera.position).sub(this.target);
+    _offset.applyQuaternion(_quat);
+    _spherical.setFromVector3(_offset);
+    _spherical.theta += _sphericalDelta.theta * 0.5;
+    _spherical.phi += _sphericalDelta.phi * 0.5;
+    _spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, _spherical.phi));
+    _spherical.radius *= _scale;
+    _spherical.radius = Math.max(this.minDistance, Math.min(this.maxDistance, _spherical.radius));
+    this.target.add(_panOffset.clone().multiplyScalar(0.5));
+    _offset.setFromSpherical(_spherical);
+    _offset.applyQuaternion(_quatInverse);
+    camera.position.copy(this.target).add(_offset);
+    camera.lookAt(this.target);
+    if (this.enableDamping) {
+      _sphericalDelta.theta *= 1 - this.dampingFactor;
+      _sphericalDelta.phi *= 1 - this.dampingFactor;
+      _panOffset.multiplyScalar(1 - this.dampingFactor);
+    } else {
+      _sphericalDelta.set(0, 0, 0);
+      _panOffset.set(0, 0, 0);
+    }
+    _scale = 1;
+  };
+};
+</script>
+
+<script src="rng.js"></script>
+<script src="graph.js"></script>
+<script src="aco.js"></script>
+<script src="renderer3d.js"></script>
+<script src="charts.js"></script>
+<script src="logger.js"></script>
+<script src="main.js"></script>
+
+<script>
+  setInterval(() => {
+    const el = document.getElementById('vtx-count');
+    if (el && typeof graph !== 'undefined') {
+      el.textContent = `(${graph.n}/12)`;
+    }
+  }, 500);
+</script>
+
+</body>
+</html>
