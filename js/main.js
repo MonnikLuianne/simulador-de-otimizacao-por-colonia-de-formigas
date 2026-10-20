@@ -34,10 +34,8 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-vertex').addEventListener('click', _onAddVertex);
 
   document.querySelectorAll('.param-field').forEach(el => {
-    el.addEventListener('change', () => {
-      needsReset = true;
-      _markNeedsReset();
-    });
+    el.addEventListener('input', _onConfigChange);
+    el.addEventListener('change', _onConfigChange);
   });
 
   document.getElementById('speed-range').addEventListener('input', e => {
@@ -186,9 +184,19 @@ function _afterGraphChange() {
   _renderVertexTable();
   _buildDepotSelect();
   _buildScene();
+  _onConfigChange();
+}
 
+/**
+ * Qualquer alteração em dados ou parâmetros exige Reiniciar: se houver uma
+ * execução em andamento ela é pausada e não pode ser retomada nem avançada.
+ */
+function _onConfigChange(e) {
+  if (e && e.target && e.target.id === 'depot-select' && !aco) _buildScene();
+  if (!aco) return; // nada calculado ainda: a próxima execução já usa os novos valores
   needsReset = true;
   _markNeedsReset();
+  if (simRunning && !simPaused) _onPause();
 }
 
 function _buildDepotSelect() {
@@ -244,11 +252,22 @@ function _getParams() {
     numAnts: getInt('num-ants'),
     numIter: getInt('num-iter'),
     depotId: _getDepotId(),
-    seed: getInt('seed')
+    seed: getInt('seed'),
+    raw: {
+      numAnts: document.getElementById('num-ants').value.trim(),
+      numIter: document.getElementById('num-iter').value.trim(),
+      seed: document.getElementById('seed').value.trim()
+    }
   };
 }
 
 function _validateParams(p) {
+  // Campos inteiros: recusa decimais em vez de truncar (10.7 não vira 10)
+  const inteiro = /^\d+$/;
+  if (!inteiro.test(p.raw.numAnts)) return 'Formigas: informe um inteiro entre 1 e 100.';
+  if (!inteiro.test(p.raw.numIter)) return 'Iterações: informe um inteiro entre 1 e 200.';
+  if (!inteiro.test(p.raw.seed)) return 'A semente aleatória deve ser um inteiro não negativo.';
+
   if (!Number.isFinite(p.alpha) || p.alpha < 0 || p.alpha > 5) {
     return 'α deve estar entre 0 e 5.';
   }
@@ -293,26 +312,16 @@ function _validateParams(p) {
 }
 
 // ─── Controles ────────────────────────────────────────────────────────────────
-async function _onRun() {
-  if (simRunning && !simPaused) return;
+let runGraph = null; // cópia do grafo usada pela execução atual
 
-  // Retomar após pausa
-  if (simPaused && aco) {
-    simPaused = false;
-    simRunning = true;
-
-    _setButtons('running');
-    aco.resume();
-
-    return;
-  }
-
+/** Cria uma nova execução com os dados e parâmetros atuais (iteração 0). */
+function _novaExecucao() {
   const params = _getParams();
   const err = _validateParams(params);
 
   if (err) {
     _showError(err);
-    return;
+    return false;
   }
 
   rng = new SeededRNG(params.seed);
@@ -323,35 +332,53 @@ async function _onRun() {
   needsReset = false;
   _clearNeedsReset();
 
-  aco = new AntSystem(graph, params, rng, _onIterComplete, null);
-
-  aco.onAntStep = step => {
-    if (document.getElementById('chk-log-steps')?.checked) {
-      logger.logAntStep(step);
-    }
-  };
+  runGraph = graph.clone();
+  aco = new AntSystem(runGraph, params, rng, result => _onIterComplete(result, runGraph), null);
 
   _buildScene();
   _updateStatusBar(null);
+  return true;
+}
+
+function _bloqueioDeExecucao() {
+  if (aco && needsReset) {
+    return 'Dados ou parâmetros alterados: clique em Reiniciar para aplicá-los.';
+  }
+  if (aco && aco.isFinished()) {
+    return 'Todas as iterações já foram concluídas. Clique em Reiniciar para recomeçar.';
+  }
+  return null;
+}
+
+async function _onRun() {
+  if (simRunning && !simPaused) return;
+
+  const bloqueio = _bloqueioDeExecucao();
+  if (bloqueio) {
+    _showError(bloqueio);
+    return;
+  }
+
+  if (!aco && !_novaExecucao()) return;
 
   simRunning = true;
   simPaused = false;
-
   _setButtons('running');
 
-  const speedMs = parseInt(
-    document.getElementById('speed-range').value,
-    10
-  );
+  // Pausado dentro do laço: apenas retoma
+  if (aco.isRunning()) {
+    aco.resume();
+    return;
+  }
 
-  _runAllPromise = aco.runAll(speedMs);
-  await _runAllPromise;
+  // Sem laço ativo (início ou depois de "Avançar"): continua da iteração atual
+  const atual = aco;
+  await atual.runAll(() => parseInt(document.getElementById('speed-range').value, 10) || 0);
 
-  if (!aco._stopped) {
+  if (aco === atual && !atual._stopped) {
     simRunning = false;
     simPaused = false;
-
-    _setButtons('idle');
+    _setButtons(atual.isFinished() ? 'done' : 'paused');
   }
 }
 
@@ -367,45 +394,17 @@ function _onPause() {
 function _onStep() {
   if (simRunning && !simPaused) return;
 
-  if (!aco || needsReset) {
-    const params = _getParams();
-    const err = _validateParams(params);
-
-    if (err) {
-      _showError(err);
-      return;
-    }
-
-    rng = new SeededRNG(params.seed);
-
-    logger.reset();
-    evChart.reset();
-
-    needsReset = false;
-    _clearNeedsReset();
-
-    aco = new AntSystem(graph, params, rng, _onIterComplete, null);
-
-    aco.onAntStep = step => {
-      if (document.getElementById('chk-log-steps')?.checked) {
-        logger.logAntStep(step);
-      }
-    };
-
-    _buildScene();
-    _updateStatusBar(null);
-  }
-
-  if (aco.currentIter >= aco.params.numIter) {
-    _showError('Todas as iterações já foram concluídas. Reinicie para recomeçar.');
+  const bloqueio = _bloqueioDeExecucao();
+  if (bloqueio) {
+    _showError(bloqueio);
     return;
   }
 
-  simPaused = true;
+  if (!aco && !_novaExecucao()) return;
 
   aco.step();
-
-  _setButtons('paused');
+  simPaused = true;
+  _setButtons(aco.isFinished() ? 'done' : 'paused');
 }
 
 function _onReset() {
@@ -413,9 +412,10 @@ function _onReset() {
 
   _runAllPromise = null;
   aco = null;
+  runGraph = null;
   simRunning = false;
   simPaused = false;
-  needsReset = true;
+  needsReset = false;
 
   logger.reset();
   evChart.reset();
@@ -428,14 +428,15 @@ function _onReset() {
 }
 
 // ─── Callback de iteração ─────────────────────────────────────────────────────
-function _onIterComplete(result) {
-  renderer.updatePheromones(result.tau, graph);
-  renderer.highlightBestRoute(result.bestRoute, graph);
+function _onIterComplete(result, g) {
+  const escala = renderer.updatePheromones(result.tau, g);
+  _updateLegend(escala, result.iter);
+  renderer.highlightBestRoute(result.bestRoute, g);
 
   if (document.getElementById('chk-animate-ants')?.checked) {
     renderer.launchAnts(
       result.antResults.map(a => a.route),
-      graph
+      g
     );
   }
 
@@ -452,21 +453,56 @@ function _onIterComplete(result) {
     result.avgLength,
     result.bestLength,
     result.bestRoute,
-    graph
+    g
   );
 
+  logger.logIterHeader(result.iter);
+  if (document.getElementById('chk-log-steps')?.checked) {
+    logger.logRouteConstruction(result.antResults[0], 0, g);
+  }
+  logger.logRouteLengths(result.antResults);
   if (document.getElementById('chk-log-pheromone')?.checked) {
     logger.logPheromone(result.pheromoneLog);
   }
 
-  _updateStatusBar(result);
+  _updateStatusBar(result, g);
+}
+
+/** Legenda numérica da escala de feromônio (logarítmica; muda só se τ_ref aumentar). */
+function _fmtTau(v) {
+  if (v !== 0 && Math.abs(v) < 0.001) return v.toExponential(2).replace('.', ',');
+  return v.toLocaleString('pt-BR', { maximumFractionDigits: 6 });
+}
+
+function _legendLimits(ref) {
+  document.getElementById('legend-min').textContent = '≤ ' + _fmtTau(ref * Math.pow(10, -DECADAS_ESCALA));
+  document.getElementById('legend-max').textContent = _fmtTau(ref);
+}
+
+function _updateLegend(escala, iter) {
+  _legendLimits(escala.ref);
+  const nota = document.getElementById('scale-note');
+  const atual = `Feromônio atual: mín ${_fmtTau(escala.min)}, máx ${_fmtTau(escala.max)}.`;
+  nota.textContent = escala.changed
+    ? `Iteração ${iter}: a escala mudou (τ_ref ${_fmtTau(escala.prevRef)} → ${_fmtTau(escala.ref)}); a mesma cor agora representa mais feromônio. ${atual}`
+    : `Iteração ${iter}: escala logarítmica inalterada (τ_ref = ${_fmtTau(escala.ref)}). ${atual}`;
+  nota.classList.toggle('mudou', escala.changed);
+}
+
+function _resetLegend() {
+  const tau0 = parseFloat(document.getElementById('tau0').value) || 1;
+  _legendLimits(tau0);
+  const nota = document.getElementById('scale-note');
+  nota.textContent = `Iteração 0: τ = ${_fmtTau(tau0)} em todas as arestas (τ_ref = τ₀). Escala logarítmica: cada sexto da barra corresponde a um fator 10.`;
+  nota.classList.remove('mudou');
 }
 
 // ─── Barra de status ──────────────────────────────────────────────────────────
-function _updateStatusBar(result) {
+function _updateStatusBar(result, g = graph) {
   const el = id => document.getElementById(id);
 
   if (!result) {
+    _resetLegend();
     el('stat-iter').textContent = '0 / —';
     el('stat-best').textContent = 'ainda não calculada';
     el('stat-iter-best').textContent = '—';
@@ -484,7 +520,7 @@ function _updateStatusBar(result) {
   el('stat-avg').textContent = result.avgLength.toFixed(4);
 
   el('stat-route').textContent = result.bestRoute
-    .map(i => graph.vertices[i].id)
+    .map(i => g.vertices[i].id)
     .join(' → ');
 }
 
@@ -504,6 +540,11 @@ function _setButtons(state) {
     run.textContent = '▶ Retomar';
     pause.disabled = true;
     step.disabled = false;
+  } else if (state === 'done') {
+    run.disabled = true;
+    run.textContent = '▶ Executar';
+    pause.disabled = true;
+    step.disabled = true;
   } else {
     run.disabled = false;
     run.textContent = '▶ Executar';

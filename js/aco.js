@@ -22,6 +22,7 @@ class AntSystem {
     this.currentIter = 0;   // próxima iteração a executar (1-indexed na exibição)
     this._paused = false;
     this._stopped = false;
+    this._running = false;   // true enquanto runAll() está ativo (mesmo pausado)
     this._resumeResolve = null;
   }
 
@@ -178,20 +179,37 @@ class AntSystem {
     return iterResult;
   }
 
-  // ── Execução assíncrona completa com suporte a pause/resume ─────────────────
-  async runAll(speedMs = 300) {
+  // ── Execução assíncrona com suporte a pause/resume ──────────────────────────
+  // Continua a partir da iteração atual (permite Avançar e depois Executar).
+  // getDelay devolve o intervalo visual em ms; ele só controla a espera entre
+  // iterações e não interfere nos sorteios nem nos resultados.
+  async runAll(getDelay = 300) {
     this._stopped = false;
     this._paused  = false;
-    const total = this.params.numIter;
-
-    while (this.currentIter < total && !this._stopped) {
-      if (this._paused) {
-        await new Promise(r => { this._resumeResolve = r; });
-        if (this._stopped) break;
+    this._running = true;
+    try {
+      while (!this._stopped && this.currentIter < this.params.numIter) {
+        if (this._paused) {
+          await new Promise(r => { this._resumeResolve = r; });
+          continue; // reavalia a condição: a pausa pode ter durado até o fim
+        }
+        this.runIteration();
+        const delay = typeof getDelay === 'function' ? getDelay() : getDelay;
+        if (delay > 0) await new Promise(r => setTimeout(r, delay));
       }
-      this.runIteration();
-      if (speedMs > 0) await new Promise(r => setTimeout(r, speedMs));
+    } finally {
+      this._running = false;
     }
+  }
+
+  /** true se runAll() está em andamento (inclusive pausado). */
+  isRunning() {
+    return this._running;
+  }
+
+  /** true se todas as iterações configuradas já foram executadas. */
+  isFinished() {
+    return this.currentIter >= this.params.numIter;
   }
 
   pause() {

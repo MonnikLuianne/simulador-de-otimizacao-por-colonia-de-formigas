@@ -1,6 +1,8 @@
 /**
  * graph.js — Estrutura de dados do grafo de entregas
  */
+const DUAS_CASAS = /^\d+(\.\d{1,2})?$/;
+
 class Graph {
   constructor() {
     /** @type {Array<{id: string, x: number, y: number}>} */
@@ -36,9 +38,10 @@ class Graph {
       return 'Coordenadas devem estar entre 0 e 1000.';
     }
 
-    if (Math.round(x * 100) !== x * 100 ||
-        Math.round(y * 100) !== y * 100) {
-      return 'As coordenadas podem ter no máximo duas casas decimais.';
+    // Verifica o texto digitado (x * 100 sofre erro de ponto flutuante:
+    // 1.15 * 100 = 114.99999999999999).
+    if (!DUAS_CASAS.test(rawX) || !DUAS_CASAS.test(rawY)) {
+      return 'As coordenadas podem ter no máximo duas casas decimais (ex.: 150 ou 150.25).';
     }
 
     if (this.vertices.find(v => v.x === x && v.y === y)) {
@@ -106,9 +109,10 @@ class Graph {
       return 'Coordenadas devem estar entre 0 e 1000.';
     }
 
-    if (Math.round(x * 100) !== x * 100 ||
-        Math.round(y * 100) !== y * 100) {
-      return 'As coordenadas podem ter no máximo duas casas decimais.';
+    // Verifica o texto digitado (x * 100 sofre erro de ponto flutuante:
+    // 1.15 * 100 = 114.99999999999999).
+    if (!DUAS_CASAS.test(rawX) || !DUAS_CASAS.test(rawY)) {
+      return 'As coordenadas podem ter no máximo duas casas decimais (ex.: 150 ou 150.25).';
     }
 
     const dup = this.vertices.find(
@@ -149,5 +153,13 @@ class Graph {
 
   indexOf(id) {
     return this.vertices.findIndex(v => v.id === id);
+  }
+
+  /** Cópia independente (a execução não é afetada por edições posteriores). */
+  clone() {
+    const g = new Graph();
+    g.vertices = this.vertices.map(v => ({ ...v }));
+    g._rebuildDist();
+    return g;
   }
 }

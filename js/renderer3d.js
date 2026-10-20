@@ -1,3 +1,5 @@
+const DECADAS_ESCALA = 6; // ordens de grandeza cobertas pela escala de cor
+
 /**
  * renderer3d.js — Visualização 3D com Three.js
  */
@@ -25,8 +27,7 @@ class Renderer3D {
     this.hoveredEdge = null;
 
     this.currentTau = null;
-    this.tauMin = 1e-12;
-    this.tauMax = 1;
+    this.tauRef = 1;   // referência da escala visual do feromônio
 
     this._init();
   }
@@ -181,7 +182,7 @@ class Renderer3D {
     this.antAnimations = [];
     this.antMeshes = [];
 
-    this._updateTauRange(tau, graph);
+    this._resetTauScale(tau, graph);
 
     for (let i = 0; i < graph.n; i++) {
       for (let j = i + 1; j < graph.n; j++) {
@@ -225,7 +226,14 @@ class Renderer3D {
     this.camera.lookAt(cx, cy, 0);
   }
 
-  _updateTauRange(tau, graph) {
+  // Escala visual do feromônio (logarítmica e fixa)
+  // A intensidade é 1 + log10(τ / τ_ref) / DECADAS_ESCALA, limitada a [0, 1]:
+  // τ = τ_ref é o máximo e τ ≤ τ_ref × 10^-6 é o mínimo. τ_ref começa em τ₀ e
+  // só aumenta (maior feromônio já observado na execução), então uma aresta
+  // cujo feromônio diminuiu nunca aparece mais intensa; toda mudança de τ_ref
+  // é informada na legenda. A escala logarítmica mantém o contraste mesmo
+  // quando os depósitos Q/L são pequenos em relação a τ₀.
+  _tauStats(tau, graph) {
     let mn = Infinity, mx = -Infinity;
     for (let i = 0; i < graph.n; i++) {
       for (let j = i + 1; j < graph.n; j++) {
@@ -233,12 +241,17 @@ class Renderer3D {
         if (tau[i][j] < mn) mn = tau[i][j];
       }
     }
-    this.tauMin = mn;
-    this.tauMax = mx === mn ? mn + 1 : mx;
+    return { min: mn, max: mx };
+  }
+
+  _resetTauScale(tau, graph) {
+    const { max } = this._tauStats(tau, graph);
+    this.tauRef = max > 0 ? max : 1;
   }
 
   _tauToVisual(tauVal) {
-    const t = (tauVal - this.tauMin) / (this.tauMax - this.tauMin);
+    if (!(tauVal > 0)) return 0;
+    const t = 1 + Math.log10(tauVal / this.tauRef) / DECADAS_ESCALA;
     return Math.max(0, Math.min(1, t));
   }
 
@@ -304,9 +317,15 @@ class Renderer3D {
     this.scene.add(sprite);
   }
 
+  /**
+   * Atualiza as cores das arestas e devolve as informações da escala
+   * ({ min, max, ref, prevRef, changed }) para a legenda.
+   */
   updatePheromones(tau, graph) {
     this.currentTau = tau;
-    this._updateTauRange(tau, graph);
+    const { min, max } = this._tauStats(tau, graph);
+    const prevRef = this.tauRef;
+    if (max > this.tauRef) this.tauRef = max;
     for (let i = 0; i < graph.n; i++) {
       for (let j = i + 1; j < graph.n; j++) {
         const key = `${i}-${j}`;
@@ -319,6 +338,7 @@ class Renderer3D {
         entry.tau = tauVal;
       }
     }
+    return { min, max, ref: this.tauRef, prevRef, changed: this.tauRef !== prevRef };
   }
 
   highlightBestRoute(route, graph) {
