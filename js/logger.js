@@ -32,6 +32,33 @@ class Logger {
     this._appendLog('🧪 Feromônios:\n' + lines.join('\n'));
   }
 
+  /**
+   * Construção completa de uma rota: vértice atual, candidatos com
+   * probabilidades, vértice escolhido, retorno ao depósito e comprimento.
+   */
+  logRouteConstruction(antResult, antIndex, graph) {
+    if (!this.logPanel) return;
+    const id = i => graph.vertices[i].id;
+    const lines = [`🐜 Construção da rota da formiga ${antIndex + 1}:`];
+    antResult.steps.forEach((s, k) => {
+      const cands = s.candidateIds
+        .map((c, m) => `${c} (p=${s.probs[m].toFixed(6)})`)
+        .join(', ');
+      lines.push(`  ${k + 1}. em ${s.fromId} → candidatos: ${cands} → sorteado: ${s.chosenId}`);
+    });
+    const r = antResult.route;
+    lines.push(`  ${antResult.steps.length + 1}. todos visitados → retorno obrigatório ao depósito: ${id(r[r.length - 2])} → ${id(r[r.length - 1])}`);
+    lines.push(`  Rota: ${r.map(id).join(' → ')} | comprimento L = ${antResult.length.toFixed(6)}`);
+    this._appendLog(lines.join('\n'));
+  }
+
+  /** Comprimento da rota de cada formiga da iteração. */
+  logRouteLengths(antResults) {
+    if (!this.logPanel) return;
+    const items = antResults.map((a, k) => `F${k + 1}=${a.length.toFixed(4)}`).join(', ');
+    this._appendLog(`📏 Comprimentos das rotas: ${items}`);
+  }
+
   logAntStep(step) {
     if (!this.logPanel) return;
     const candStr = step.candidateIds.map((id, k) =>
@@ -48,7 +75,9 @@ class Logger {
 
   _appendLog(text) {
     if (!this.logPanel) return;
-    this.logPanel.textContent += text + '\n';
+    // Acrescenta um nó de texto (textContent += recopiaria o log inteiro a
+    // cada linha e travaria a página em execuções longas).
+    this.logPanel.insertAdjacentText('beforeend', text + '\n');
     this.logPanel.scrollTop = this.logPanel.scrollHeight;
   }
 

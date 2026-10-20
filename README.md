@@ -34,10 +34,21 @@ A visualização é feita em 3D com Three.js, com arestas coloridas proporcional
 1. Acesse a aplicação pelo link do GitHub Pages acima — não é necessário instalar nada.
 2. Configure os parâmetros no painel esquerdo.
 3. Gerencie os vértices (adicionar, editar, remover) na tabela de vértices.
-4. Clique em **Executar** para rodar todas as iterações, **Passo** para avançar uma por vez, ou **Pausar/Retomar** para controlar a execução.
-5. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
-6. Use os botões **+** / **−** / **⌖** no cabeçalho para zoom e centralização do grafo.
-7. Passe o mouse sobre as arestas para ver distância e feromônio atual.
+4. Clique em **Executar** para rodar até o número de iterações configurado, **Avançar uma iteração** para executar exatamente uma iteração e continuar pausado, ou **Pausar**/**Retomar** para controlar a execução. Executar continua de onde parou, inclusive depois de Avançar.
+5. Qualquer alteração em vértices ou parâmetros pausa a execução e exige **Reiniciar** (aviso amarelo). Reiniciar limpa o histórico, restaura τ₀ em todas as arestas e restabelece a semente.
+6. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
+7. Use os botões **+** / **−** / **⌖** no cabeçalho para zoom e centralização do grafo.
+8. Passe o mouse sobre as arestas para ver a distância e o feromônio numérico atual.
+9. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
+
+### Escala visual do feromônio
+
+A cor de cada aresta segue uma escala **logarítmica fixa**: a intensidade é 1 + log₁₀(τ / τ_ref) / 6, limitada entre 0 e 1. Ou seja, τ = τ_ref é a cor mais intensa, τ ≤ τ_ref × 10⁻⁶ é a mais fraca, e cada sexto da barra corresponde a um fator 10.
+
+- A referência τ_ref começa em τ₀ e só aumenta (é o maior feromônio já observado na execução). Por isso, uma aresta cujo feromônio diminuiu nunca aparece mais intensa.
+- A legenda mostra os limites numéricos da escala, o mínimo e o máximo atuais e avisa sempre que τ_ref muda.
+- A escala logarítmica mantém o contraste mesmo quando os depósitos Q/L são pequenos perto de τ₀ (por exemplo, no cenário inicial, com distâncias de centenas de unidades e Q = 14).
+- O valor exato de cada aresta aparece ao passar o mouse sobre ela.
 
 ---
 
@@ -134,29 +145,46 @@ Com 2 formigas na mesma rota, 1 iteração:
 
 Configuração: instância 6.1, depósito A, 10 formigas, 30 iterações, α=1, β=2, ρ=50%, τ₀=1, Q=14, semente 42.
 
-- Resultado obtido: **A → B → C → D → A**, comprimento **14** ✅ (ótimo global)
-- 30 registros de resultados gerados, um por iteração ✅
-- Estado inicial exibe "ainda não calculada" para a melhor distância ✅
-- Melhor distância acumulada nunca aumentou ao longo das iterações ✅
-- Repetindo dados, parâmetros e semente: histórico idêntico reproduzido ✅
+- Resultado obtido: **A → D → C → B → A**, comprimento **14** ✅. É o ótimo global, na orientação inversa de A → B → C → D → A. A rota foi encontrada já na iteração 1.
+- Comprimentos observados em todas as rotas de todas as formigas: apenas 14, 16 e 18 ✅ (nenhuma rota inválida).
+- Média das distâncias das formigas: 15,0 na iteração 1 e 14,0 na iteração 30.
+- 30 registros de resultados, um por iteração ✅. O estado inicial (iteração 0) mostra τ = 1 e "ainda não calculada" para a melhor distância ✅.
+- A melhor distância acumulada nunca aumentou ✅.
+- Repetir dados, parâmetros e semente reproduziu o mesmo histórico ✅. Avançar 10 iterações e depois Executar até o fim gera exatamente o mesmo histórico de uma execução contínua; o intervalo visual só controla a espera entre iterações ✅.
 
 ### 6.5 — Efeito dos parâmetros
 
-Comparação β=0 vs β=2, demais parâmetros da seção 6.4, 5 execuções com sementes 1–5:
+Comparação β=0 vs β=2, demais parâmetros da seção 6.4, sementes 1 a 5:
 
-| Configuração | Média da melhor distância | Execuções com distância 14 |
-|---|---|---|
-| β=0 | 16,0 | 2/5 |
-| β=2 | 14,4 | 4/5 |
+| Semente | β=0: melhor final | β=0: média das formigas na iteração 30 | β=2: melhor final | β=2: média das formigas na iteração 30 |
+|:---:|:---:|:---:|:---:|:---:|
+| 1 | 14 | 16,8 | 14 | 14,0 |
+| 2 | 14 | 15,4 | 14 | 14,0 |
+| 3 | 14 | 15,4 | 14 | 14,0 |
+| 4 | 14 | 16,4 | 14 | 14,0 |
+| 5 | 14 | 15,0 | 14 | 14,0 |
 
-β=2 favorece a exploração de rotas mais curtas com mais consistência, como esperado — a heurística de distância guia melhor as formigas em instâncias pequenas.
+| Configuração | Média da melhor distância final | Execuções que atingiram 14 | Média das formigas na iteração 30 |
+|---|---|---|---|
+| β=0 | **14,0** | **5/5** | 15,8 |
+| β=2 | **14,0** | **5/5** | 14,0 |
+
+**Interpretação:** pela métrica pedida (melhor distância final), não houve diferença: as duas configurações encontraram o ótimo 14 em todas as execuções, já na primeira iteração. Isso é esperado nesta instância: só existem 3 ciclos distintos (14, 16 e 18), e 10 formigas sorteando rotas quase sempre encontram o de 14 logo no início, mesmo sem usar a distância.
+
+A diferença aparece no comportamento da colônia:
+- Com **β=2**, a distância favorece as arestas do perímetro (mais curtas) e o depósito reforça essas mesmas arestas. Na iteração 30, todas as formigas percorrem a rota de 14 (média 14,0).
+- Com **β=0**, a escolha depende só do feromônio. A colônia converge mais devagar: na iteração 30, apenas 10% a 50% das formigas estavam na rota ótima, e a média ficou entre 15,0 e 16,8.
+
+Em instâncias maiores, em que o ótimo não aparece por acaso nas primeiras iterações, espera-se que essa diferença também apareça na melhor distância final.
 
 Validações de entradas inválidas:
-- Coordenadas duplicadas → mensagem de erro ✅
+- Coordenadas duplicadas → "Já existe um vértice nessas coordenadas." ✅
+- Coordenadas com até duas casas decimais (ex.: 4.35; 19.99) aceitas; com três casas recusadas ✅
 - Identificadores repetidos → mensagem de erro ✅
 - Menos de 4 vértices → bloqueado com mensagem ✅
 - Campos vazios → bloqueado com mensagem ✅
 - Valores fora do intervalo → bloqueado com mensagem ✅
+- Campos inteiros com decimais (ex.: 10.7 formigas) → recusados, sem truncar ✅
 - ρ=0%: feromônio não reduz por evaporação, apenas depósito altera ✅
 
 ---

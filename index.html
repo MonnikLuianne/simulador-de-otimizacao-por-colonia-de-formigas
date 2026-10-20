@@ -338,6 +338,8 @@
       background: linear-gradient(to right, #1e28b4, #ff8833, #ff3300);
       margin: 4px 0 2px;
     }
+    .scale-note { margin-top: 4px; font-size: 9px; line-height: 1.35; max-width: 220px; color: var(--muted); }
+    .scale-note.mudou { color: #ffcc66; }
     .legend-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); }
 
     ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -354,7 +356,7 @@
   <header id="header">
     <h1>🐜 Colônia de Formigas <span>— Simulador ACO 3D</span></h1>
 
-    <a href="https://github.com/SEU-USUARIO/SEU-REPOSITORIO" target="_blank"
+    <a href="https://github.com/MonnikLuianne/simulador-de-otimizacao-por-colonia-de-formigas" target="_blank"
    style="font-size:11px;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:3px 10px;border-radius:4px;white-space:nowrap;">
   📂 Repositório
 </a>
@@ -365,7 +367,7 @@
       <span id="speed-val">300ms</span>
       <button class="btn primary" id="btn-run">▶ Executar</button>
       <button class="btn" id="btn-pause" disabled>⏸ Pausar</button>
-      <button class="btn" id="btn-step">⏭ Passo</button>
+      <button class="btn" id="btn-step">⏭ Avançar uma iteração</button>
       <button class="btn" id="btn-reset">↺ Reiniciar</button>
     </div>
     <div class="zoom-group">
@@ -439,7 +441,7 @@
         <div class="section-title">Visualização</div>
         <div class="options-row">
           <label class="chk-row"><input type="checkbox" id="chk-animate-ants" checked/> Animar formigas</label>
-          <label class="chk-row"><input type="checkbox" id="chk-log-steps"/> Log de passos</label>
+          <label class="chk-row"><input type="checkbox" id="chk-log-steps" checked/> Log da construção da rota (formiga 1)</label>
           <label class="chk-row"><input type="checkbox" id="chk-log-pheromone" checked/> Log de feromônios</label>
         </div>
       </div>
@@ -448,7 +450,7 @@
     <main id="canvas-area">
       <canvas id="three-canvas"></canvas>
       <div id="tooltip"></div>
-      <div id="reset-banner">⚠ Parâmetros alterados — pressione Reiniciar</div>
+      <div id="reset-banner">⚠ Dados ou parâmetros alterados — clique em Reiniciar para aplicá-los</div>
       <div id="status-overlay">
         <div class="stat-row"><span class="stat-label">Iteração</span><span class="stat-val" id="stat-iter">0 / —</span></div>
         <div class="stat-row"><span class="stat-label">Melhor acumulada</span><span class="stat-val" id="stat-best">ainda não calculada</span></div>
@@ -459,7 +461,8 @@
       <div id="tau-legend">
         <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Feromônio nas arestas</div>
         <div id="gradient-bar"></div>
-        <div class="legend-labels"><span>Baixo</span><span>Alto</span></div>
+        <div class="legend-labels"><span>τ = <b id="legend-min">0</b></span><span>τ = <b id="legend-max">1</b></span></div>
+        <div id="scale-note" class="scale-note"></div>
         <div style="margin-top:5px;font-size:9px">— Melhor rota <span style="color:var(--accent2)">■</span></div>
         <div style="font-size:9px;margin-top:2px">🟠 Depósito &nbsp; 🔵 Entrega</div>
       </div>
