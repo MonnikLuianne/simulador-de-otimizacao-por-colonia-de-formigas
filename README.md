@@ -39,7 +39,7 @@ A visualização é feita em 3D com Three.js, com arestas coloridas proporcional
 6. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
 7. Use os botões **+** / **−** / **⌖** no cabeçalho para zoom e centralização do grafo.
 8. Passe o mouse sobre as arestas para ver a distância e o feromônio numérico atual.
-9. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
+9. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga, a melhor rota da iteração e a melhor acumulada e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
 
 ### Escala visual do feromônio
 

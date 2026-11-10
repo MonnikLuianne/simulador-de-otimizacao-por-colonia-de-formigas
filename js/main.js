@@ -452,7 +452,7 @@ function _onIterComplete(result, g) {
     result.iterBestLength,
     result.avgLength,
     result.bestLength,
-    result.bestRoute,
+    result.iterBestRoute, // melhor rota DESTA iteração (a acumulada fica no painel do grafo)
     g
   );
 
@@ -461,6 +461,7 @@ function _onIterComplete(result, g) {
     logger.logRouteConstruction(result.antResults[0], 0, g);
   }
   logger.logRouteLengths(result.antResults);
+  logger.logBestRoutes(result, g);
   if (document.getElementById('chk-log-pheromone')?.checked) {
     logger.logPheromone(result.pheromoneLog);
   }

@@ -385,7 +385,8 @@ class Renderer3D {
         path,
         segIndex: 0,
         t: (k / show),
-        speed: 0.4 + Math.random() * 0.3,
+        // variação fixa por formiga (apenas visual; sem sorteio fora do gerador com semente)
+        speed: 0.4 + ((k * 7) % 10) * 0.03,
       });
     }
   }

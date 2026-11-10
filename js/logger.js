@@ -19,7 +19,7 @@ class Logger {
       <td>${iterBest.toFixed(4)}</td>
       <td>${avg.toFixed(4)}</td>
       <td>${bestAcc.toFixed(4)}</td>
-      <td class="route-cell">${routeStr}</td>
+      <td class="route-cell" title="${routeStr}">${routeStr}</td>
     `;
     this.tbody.prepend(tr); // mais recente no topo
   }
@@ -50,6 +50,16 @@ class Logger {
     lines.push(`  ${antResult.steps.length + 1}. todos visitados → retorno obrigatório ao depósito: ${id(r[r.length - 2])} → ${id(r[r.length - 1])}`);
     lines.push(`  Rota: ${r.map(id).join(' → ')} | comprimento L = ${antResult.length.toFixed(6)}`);
     this._appendLog(lines.join('\n'));
+  }
+
+  /** Melhor rota da iteração e melhor rota acumulada. */
+  logBestRoutes(result, graph) {
+    if (!this.logPanel) return;
+    const str = r => r.map(i => graph.vertices[i].id).join(' → ');
+    this._appendLog(
+      `🏁 Melhor da iteração: ${str(result.iterBestRoute)} (L = ${result.iterBestLength.toFixed(6)})\n` +
+      `🏆 Melhor acumulada: ${str(result.bestRoute)} (L = ${result.bestLength.toFixed(6)})`
+    );
   }
 
   /** Comprimento da rota de cada formiga da iteração. */
