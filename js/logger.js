@@ -19,7 +19,7 @@ class Logger {
       <td>${iterBest.toFixed(4)}</td>
       <td>${avg.toFixed(4)}</td>
       <td>${bestAcc.toFixed(4)}</td>
-      <td class="route-cell">${routeStr}</td>
+      <td class="route-cell" title="${routeStr}">${routeStr}</td>
     `;
     this.tbody.prepend(tr); // mais recente no topo
   }
@@ -30,6 +30,43 @@ class Logger {
       `  ${p.idI}↔${p.idJ}: anterior ${p.before.toFixed(6)} | após evap ${p.afterEvap.toFixed(6)} | depósito ${p.deposit.toFixed(6)} | final ${p.final.toFixed(6)}`
     );
     this._appendLog('🧪 Feromônios:\n' + lines.join('\n'));
+  }
+
+  /**
+   * Construção completa de uma rota: vértice atual, candidatos com
+   * probabilidades, vértice escolhido, retorno ao depósito e comprimento.
+   */
+  logRouteConstruction(antResult, antIndex, graph) {
+    if (!this.logPanel) return;
+    const id = i => graph.vertices[i].id;
+    const lines = [`🐜 Construção da rota da formiga ${antIndex + 1}:`];
+    antResult.steps.forEach((s, k) => {
+      const cands = s.candidateIds
+        .map((c, m) => `${c} (p=${s.probs[m].toFixed(6)})`)
+        .join(', ');
+      lines.push(`  ${k + 1}. em ${s.fromId} → candidatos: ${cands} → sorteado: ${s.chosenId}`);
+    });
+    const r = antResult.route;
+    lines.push(`  ${antResult.steps.length + 1}. todos visitados → retorno obrigatório ao depósito: ${id(r[r.length - 2])} → ${id(r[r.length - 1])}`);
+    lines.push(`  Rota: ${r.map(id).join(' → ')} | comprimento L = ${antResult.length.toFixed(6)}`);
+    this._appendLog(lines.join('\n'));
+  }
+
+  /** Melhor rota da iteração e melhor rota acumulada. */
+  logBestRoutes(result, graph) {
+    if (!this.logPanel) return;
+    const str = r => r.map(i => graph.vertices[i].id).join(' → ');
+    this._appendLog(
+      `🏁 Melhor da iteração: ${str(result.iterBestRoute)} (L = ${result.iterBestLength.toFixed(6)})\n` +
+      `🏆 Melhor acumulada: ${str(result.bestRoute)} (L = ${result.bestLength.toFixed(6)})`
+    );
+  }
+
+  /** Comprimento da rota de cada formiga da iteração. */
+  logRouteLengths(antResults) {
+    if (!this.logPanel) return;
+    const items = antResults.map((a, k) => `F${k + 1}=${a.length.toFixed(4)}`).join(', ');
+    this._appendLog(`📏 Comprimentos das rotas: ${items}`);
   }
 
   logAntStep(step) {
@@ -48,7 +85,9 @@ class Logger {
 
   _appendLog(text) {
     if (!this.logPanel) return;
-    this.logPanel.textContent += text + '\n';
+    // Acrescenta um nó de texto (textContent += recopiaria o log inteiro a
+    // cada linha e travaria a página em execuções longas).
+    this.logPanel.insertAdjacentText('beforeend', text + '\n');
     this.logPanel.scrollTop = this.logPanel.scrollHeight;
   }
 
