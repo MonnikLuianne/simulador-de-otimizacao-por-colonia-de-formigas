@@ -40,7 +40,9 @@ A visualização do grafo é feita em 2D com a API Canvas do navegador, com ares
 7. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
 8. Navegue pelo grafo com os botões **+** / **−** / **⌖** no cabeçalho, a **roda do mouse** (zoom), **arrastando** (mover a vista) ou com **duplo clique** (centralizar). O grafo se ajusta automaticamente à maior área livre do painel, sem ficar embaixo dos quadros de status e de legenda.
 9. Consulte a distância e o feromônio de cada aresta de duas formas: passando o mouse sobre a aresta no grafo ou pela tabela **Arestas: distância e feromônio** (painel esquerdo), atualizada a cada iteração. Clicar em uma linha da tabela destaca a aresta em branco no grafo; as arestas da melhor rota acumulada são marcadas com ★. Os vértices são identificados por rótulos com fundo, posicionados para fora do grafo para não cobrir as arestas, e o depósito aparece em laranja com a indicação "(depósito)".
-10. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga, a melhor rota da iteração e a melhor acumulada e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
+10. Use o botão **🌙 Escuro / ☀️ Claro** no cabeçalho para alternar o tema. O tema claro é o padrão, com fundo claro e texto escuro para maior contraste; a escolha fica salva no navegador.
+11. O **Histórico por iteração** e o **Log de execução** têm o botão **⛶ Tela cheia** para ler com mais espaço; para voltar, clique em **✕ Sair da tela cheia** ou aperte **Esc**.
+12. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga, a melhor rota da iteração e a melhor acumulada e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
 
 ### Escala visual do feromônio
 
