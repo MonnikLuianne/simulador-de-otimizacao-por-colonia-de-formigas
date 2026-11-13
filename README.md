@@ -35,11 +35,12 @@ A visualização é feita em 3D com Three.js, com arestas coloridas proporcional
 2. Configure os parâmetros no painel esquerdo.
 3. Gerencie os vértices (adicionar, editar, remover) na tabela de vértices.
 4. Clique em **Executar** para rodar até o número de iterações configurado, **Avançar uma iteração** para executar exatamente uma iteração e continuar pausado, ou **Pausar**/**Retomar** para controlar a execução. Executar continua de onde parou, inclusive depois de Avançar.
-5. Qualquer alteração em vértices ou parâmetros pausa a execução e exige **Reiniciar** (aviso amarelo). Reiniciar limpa o histórico, restaura τ₀ em todas as arestas e restabelece a semente.
-6. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
-7. Use os botões **+** / **−** / **⌖** no cabeçalho para zoom e centralização do grafo.
-8. Consulte a distância e o feromônio de cada aresta de duas formas: passando o mouse sobre a aresta no grafo ou pela tabela **Arestas: distância e feromônio** (painel esquerdo), atualizada a cada iteração. Clicar em uma linha da tabela destaca a aresta em branco no grafo; as arestas da melhor rota acumulada são marcadas com ★. Os vértices são identificados por rótulos acima de cada esfera, e o depósito aparece em laranja com a indicação "(depósito)".
-9. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga, a melhor rota da iteração e a melhor acumulada e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
+5. Ao terminar todas as iterações, **Executar** e **Avançar** ficam desabilitados: clique em **Reiniciar** para uma nova execução.
+6. Qualquer alteração em vértices ou parâmetros pausa a execução e exige **Reiniciar** (aviso amarelo). Reiniciar limpa o histórico, restaura τ₀ em todas as arestas e restabelece a semente.
+7. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
+8. Use os botões **+** / **−** / **⌖** no cabeçalho para zoom e centralização do grafo.
+9. Consulte a distância e o feromônio de cada aresta de duas formas: passando o mouse sobre a aresta no grafo ou pela tabela **Arestas: distância e feromônio** (painel esquerdo), atualizada a cada iteração. Clicar em uma linha da tabela destaca a aresta em branco no grafo; as arestas da melhor rota acumulada são marcadas com ★. Os vértices são identificados por rótulos acima de cada esfera, e o depósito aparece em laranja com a indicação "(depósito)".
+10. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga, a melhor rota da iteração e a melhor acumulada e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
 
 ### Escala visual do feromônio
 
@@ -72,6 +73,8 @@ A cor de cada aresta segue uma escala **logarítmica fixa**: a intensidade é 1 
 
 - **[Three.js r128](https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js)** — renderização 3D do grafo
 - **[Chart.js 3.9.1](https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js)** — gráfico de evolução das distâncias
+- **Visualização 2D de reserva** (`js/renderer2d.js`, Canvas 2D do próprio navegador, sem biblioteca) — usada automaticamente quando o navegador não permite WebGL (aceleração de hardware desativada, driver bloqueado) ou quando o Three.js não carrega. Mostra o mesmo grafo, com a mesma escala de feromônio, destaque da melhor rota, rótulos e consulta de valores pelo cursor; um aviso na tela informa que o modo 2D está ativo. O algoritmo e os resultados não mudam.
+- Se o Chart.js não carregar, a aplicação continua funcionando e o histórico permanece na tabela e no log.
 - **RNG próprio** (`js/rng.js`) — gerador Mulberry32 com semente para reprodutibilidade
 
 O algoritmo ACO é implementado integralmente no projeto, sem uso de bibliotecas de otimização prontas.
@@ -200,6 +203,7 @@ js/graph.js         — vértices e distâncias euclidianas
 js/aco.js           — implementação do Ant System
 js/rng.js           — gerador pseudoaleatório com semente (Mulberry32)
 js/renderer3d.js    — visualização 3D com Three.js
+js/renderer2d.js    — visualização 2D de reserva (sem WebGL)
 js/charts.js        — gráfico de evolução das distâncias
 js/logger.js        — histórico e log de execução
 js/main.js          — integração da interface e controles
