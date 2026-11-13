@@ -7,22 +7,75 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
+  <script>
+    // Tema salvo na última visita (claro é o padrão)
+    try {
+      if (localStorage.getItem('aco-tema') === 'escuro') document.documentElement.dataset.tema = 'escuro';
+    } catch (e) { /* armazenamento indisponível: usa o tema claro */ }
+  </script>
+
   <style>
+    /* Tema claro (padrão): fundo claro e texto escuro, com bom contraste */
     :root {
+      --bg:        #eef1f6;
+      --surface:   #ffffff;
+      --panel:     #f8fafc;
+      --border:    #cfd6e2;
+      --accent:    #c2410c;
+      --accent-hover: #9a3412;
+      --on-accent: #ffffff;
+      --accent2:   #047857;
+      --blue:      #1d4ed8;
+      --muted:     #475569;
+      --text:      #0f172a;
+      --text-dim:  #64748b;
+      --danger:    #b91c1c;
+      --hover:     #e8eefb;
+      --row-line:  #e5e9f0;
+      --canvas-bg: #f8fafc;
+      --overlay-bg: rgba(255,255,255,0.95);
+      --tooltip-bg: #ffffff;
+      --banner-bg: #fff4e6;
+      --error-bg:  #fef2f2;
+      --selected-bg: #dbeafe;
+      --selected-text: #0f172a;
+      --note-mudou: #b45309;
+      --modal-shade: rgba(15,23,42,0.45);
+      --grad-tau:  linear-gradient(to right, #cbd5e1, #f59e0b, #b91c1c);
+      --shadow:    0 1px 3px rgba(15,23,42,0.08);
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --font-ui:   'Inter', system-ui, sans-serif;
+      --radius:    6px;
+    }
+
+    /* Tema escuro (opcional, botão no cabeçalho) */
+    :root[data-tema="escuro"] {
       --bg:        #06060f;
       --surface:   #0d0d1f;
       --panel:     #111128;
       --border:    #1e2044;
       --accent:    #ff7733;
+      --accent-hover: #ff9955;
+      --on-accent: #000000;
       --accent2:   #00e5aa;
       --blue:      #3399ff;
-      --muted:     #6677aa;
-      --text:      #c8d0e8;
-      --text-dim:  #556070;
+      --muted:     #8090c0;
+      --text:      #dde3f2;
+      --text-dim:  #6a7590;
       --danger:    #ff4455;
-      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-      --font-ui:   'Inter', system-ui, sans-serif;
-      --radius:    6px;
+      --hover:     #1a1a35;
+      --row-line:  #15152c;
+      --canvas-bg: #06060f;
+      --overlay-bg: rgba(13,13,30,0.9);
+      --tooltip-bg: rgba(13,13,30,0.96);
+      --banner-bg: #2a1505;
+      --error-bg:  #2a0810;
+      --selected-bg: #2a2a55;
+      --selected-text: #ffffff;
+      --note-mudou: #ffcc66;
+      --modal-shade: rgba(0,0,0,0.7);
+      --grad-tau:  linear-gradient(to right, #1e28b4, #ff8833, #ff3300);
+      --shadow:    none;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,14 +113,14 @@
       font-family: var(--font-ui);
       transition: background 0.15s, border-color 0.15s;
     }
-    .btn:hover { background: #1a1a35; border-color: var(--muted); }
+    .btn:hover { background: var(--hover); border-color: var(--muted); }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
-    .btn.primary:hover { background: #ff9955; }
-    .btn.success { background: var(--accent2); color: #000; border-color: var(--accent2); font-weight: 700; }
+    .btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
+    .btn.primary:hover { background: var(--accent-hover); }
+    .btn.success { background: var(--accent2); color: var(--on-accent); border-color: var(--accent2); font-weight: 700; }
     .btn-sm { padding: 2px 7px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
     .btn-sm:hover { border-color: var(--muted); }
-    .btn-del:hover { background: #3a1020; border-color: var(--danger); color: var(--danger); }
+    .btn-del:hover { background: var(--error-bg); border-color: var(--danger); color: var(--danger); }
 
     #speed-label { color: var(--muted); font-size: 11px; }
     #speed-range { width: 80px; }
@@ -132,8 +185,8 @@
 
     .vtx-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .vtx-table th { color: var(--muted); text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
-    .vtx-table td { padding: 4px 6px; border-bottom: 1px solid #0e0e22; }
-    .vtx-table tr:hover td { background: #111128; }
+    .vtx-table td { padding: 4px 6px; border-bottom: 1px solid var(--row-line); }
+    .vtx-table tr:hover td { background: var(--hover); }
 
     .add-vtx-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 4px; margin-top: 6px; }
     .add-vtx-row input {
@@ -145,13 +198,14 @@
       font-size: 11px;
     }
 
-    #canvas-area { position: relative; background: #06060f; min-height: 0; }
+    #canvas-area { position: relative; background: var(--canvas-bg); min-height: 0; }
     #graph-canvas { width: 100% !important; height: 100% !important; display: block; }
 
     #tooltip {
       position: fixed;
       display: none;
-      background: rgba(13,13,30,0.95);
+      background: var(--tooltip-bg);
+      box-shadow: 0 4px 14px rgba(15,23,42,0.18);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 8px 12px;
@@ -167,7 +221,8 @@
       position: absolute;
       bottom: 12px;
       left: 12px;
-      background: rgba(13,13,30,0.88);
+      background: var(--overlay-bg);
+      box-shadow: var(--shadow);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 8px 12px;
@@ -179,7 +234,8 @@
       position: absolute;
       top: 10px;
       right: 10px;
-      background: rgba(13,13,30,0.88);
+      background: var(--overlay-bg);
+      box-shadow: var(--shadow);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 10px 14px;
@@ -198,7 +254,7 @@
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      background: #2a1505;
+      background: var(--banner-bg);
       border: 1px solid var(--accent);
       color: var(--accent);
       border-radius: var(--radius);
@@ -217,11 +273,11 @@
       gap: 10px;
     }
 
-    .hist-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .hist-table { width: 100%; border-collapse: collapse; font-size: 11px; color: var(--text); }
     .hist-table th { color: var(--muted); text-align: right; padding: 3px 5px; border-bottom: 1px solid var(--border); font-size: 9px; }
     .hist-table th:first-child, .hist-table td:first-child { text-align: center; }
-    .hist-table td { padding: 3px 5px; border-bottom: 1px solid #0d0d20; text-align: right; font-family: var(--font-mono); }
-    .hist-table tr:hover td { background: #111128; }
+    .hist-table td { padding: 3px 5px; border-bottom: 1px solid var(--row-line); text-align: right; font-family: var(--font-mono); }
+    .hist-table tr:hover td { background: var(--hover); }
     /* rota completa em uma linha própria, abaixo dos números da iteração */
     .hist-table tr.iter-nums td { border-bottom: none; padding-bottom: 1px; }
     .hist-table tr.iter-route td.route-cell { text-align: left !important; color: var(--muted); font-size: 10px; padding: 0 5px 5px 18px; white-space: normal; word-break: break-word; line-height: 1.4; }
@@ -233,7 +289,7 @@
     #edge-table-wrap { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); }
     .edge-table tbody tr { cursor: pointer; }
     .edge-table tbody tr.on-best td:first-child { color: var(--accent2); }
-    .edge-table tbody tr.selected td { background: #2a2a55 !important; color: #fff; }
+    .edge-table tbody tr.selected td { background: var(--selected-bg) !important; color: var(--selected-text); font-weight: 600; }
     .chk-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); cursor: pointer; }
     .chk-row input { accent-color: var(--accent2); }
 
@@ -286,8 +342,8 @@
       gap: 4px;
       min-height: 0;
     }
-    /* Log em tela cheia */
-    #log-wrap.tela-cheia {
+    /* Painéis em tela cheia (log e histórico) */
+    .tela-cheia {
       position: fixed;
       inset: 0;
       z-index: 1000;
@@ -297,7 +353,23 @@
       flex-direction: column;
     }
     #log-wrap.tela-cheia #log-panel { font-size: 13px; line-height: 1.55; padding: 12px 14px; }
-    body.log-tela-cheia { overflow: hidden; }
+    #hist-wrap.tela-cheia .hist-scroll { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+    #hist-wrap.tela-cheia .hist-table { font-size: 14px; max-width: 900px; margin: 0 auto; }
+    #hist-wrap.tela-cheia .hist-table thead tr:nth-child(2) th { top: 31px; }
+    #hist-wrap.tela-cheia .hist-table th { font-size: 12px; padding: 6px 10px; position: sticky; top: 0; background: var(--surface); }
+    #hist-wrap.tela-cheia .hist-table td { padding: 5px 10px; }
+    #hist-wrap.tela-cheia .hist-table tr.iter-route td.route-cell { font-size: 13px; padding: 0 10px 8px 26px; }
+    body.painel-tela-cheia { overflow: hidden; }
+    .painel-cabecalho { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .painel-cabecalho .section-title { margin: 0; padding: 0; border: none; }
+    #hist-wrap { display: flex; flex-direction: column; min-height: 0; }
+    #hist-wrap > .painel-cabecalho { padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+    .btn-tema { margin-left: 4px; }
+    #header .btn, #header h1, #header a { white-space: nowrap; }
+    #header { gap: 8px; padding: 6px 12px; height: auto; min-height: 48px; flex-wrap: wrap; row-gap: 6px; }
+    .zoom-group > span { display: none; }
+    #speed-range { width: 64px !important; }
+    #header .btn { padding: 5px 11px; }
 
     #log-panel {
       flex: 1;
@@ -321,7 +393,7 @@
       bottom: 16px;
       left: 50%;
       transform: translateX(-50%);
-      background: #2a0810;
+      background: var(--error-bg);
       border: 1px solid var(--danger);
       color: var(--danger);
       border-radius: var(--radius);
@@ -334,7 +406,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: var(--modal-shade);
       align-items: center;
       justify-content: center;
       z-index: 300;
@@ -356,11 +428,11 @@
       width: 120px;
       height: 10px;
       border-radius: 4px;
-      background: linear-gradient(to right, #1e28b4, #ff8833, #ff3300);
+      background: var(--grad-tau);
       margin: 4px 0 2px;
     }
     .scale-note { margin-top: 4px; font-size: 9px; line-height: 1.35; max-width: 220px; color: var(--muted); }
-    .scale-note.mudou { color: #ffcc66; }
+    .scale-note.mudou { color: var(--note-mudou); }
     .legend-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); }
 
     ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -395,6 +467,7 @@
       <button class="btn" id="btn-step">⏭ Avançar uma iteração</button>
       <button class="btn" id="btn-reset">↺ Reiniciar</button>
     </div>
+    <button class="btn btn-tema" id="btn-tema" title="Alternar entre tema claro e escuro">🌙 Escuro</button>
     <div class="zoom-group">
       <span>Zoom:</span>
       <button class="btn-zoom" id="btn-zoom-in"  title="Aproximar">+</button>
@@ -507,8 +580,12 @@
     </main>
 
     <aside id="right-panel">
-      <div class="section-title">Histórico por iteração</div>
-      <div style="overflow-x:auto">
+      <div id="hist-wrap">
+      <div class="painel-cabecalho">
+        <div class="section-title">Histórico por iteração</div>
+        <button class="btn-sm" id="btn-hist-fullscreen" title="Expandir o histórico para a tela inteira (Esc para voltar)">⛶ Tela cheia</button>
+      </div>
+      <div class="hist-scroll" style="overflow-x:auto">
         <table class="hist-table">
           <thead>
             <tr>
@@ -523,6 +600,7 @@
           </thead>
           <tbody id="history-tbody"></tbody>
         </table>
+      </div>
       </div>
     </aside>
 
@@ -565,13 +643,13 @@
 </div>
 
 
-<script src="js/rng.js?v=8"></script>
-<script src="js/graph.js?v=8"></script>
-<script src="js/aco.js?v=8"></script>
-<script src="js/renderer2d.js?v=8"></script>
-<script src="js/charts.js?v=8"></script>
-<script src="js/logger.js?v=8"></script>
-<script src="js/main.js?v=8"></script>
+<script src="js/rng.js?v=9"></script>
+<script src="js/graph.js?v=9"></script>
+<script src="js/aco.js?v=9"></script>
+<script src="js/renderer2d.js?v=9"></script>
+<script src="js/charts.js?v=9"></script>
+<script src="js/logger.js?v=9"></script>
+<script src="js/main.js?v=9"></script>
 
 <script>
   // ── Contador de vértices ──────────────────────────────────────────
@@ -623,28 +701,61 @@
     });
   })();
 
-  // ── Log em tela cheia (Esc ou o mesmo botão para voltar) ─────────
+  // ── Tela cheia para o log e para o histórico (Esc ou o botão para voltar) ──
   (function () {
-    const wrap  = document.getElementById('log-wrap');
-    const botao = document.getElementById('btn-log-fullscreen');
-    const panel = document.getElementById('log-panel');
+    const paineis = [];
 
-    function alternar(ativar) {
-      const ligado = (typeof ativar === 'boolean') ? ativar : !wrap.classList.contains('tela-cheia');
-      // guarda a posição relativa da rolagem para não perder o ponto de leitura
-      const fim = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 4;
-      const prop = panel.scrollHeight ? panel.scrollTop / panel.scrollHeight : 0;
-      wrap.classList.toggle('tela-cheia', ligado);
-      document.body.classList.toggle('log-tela-cheia', ligado);
-      botao.textContent = ligado ? '✕ Sair da tela cheia' : '⛶ Tela cheia';
-      botao.title = ligado ? 'Voltar ao tamanho normal (Esc)' : 'Expandir o log para a tela inteira (Esc para voltar)';
-      panel.scrollTop = fim ? panel.scrollHeight : prop * panel.scrollHeight;
+    function registrar(wrapId, botaoId, rolagemSel, nome) {
+      const wrap  = document.getElementById(wrapId);
+      const botao = document.getElementById(botaoId);
+      if (!wrap || !botao) return;
+      const rolagem = () => (rolagemSel ? wrap.querySelector(rolagemSel) : wrap);
+
+      function alternar(ativar) {
+        const ligado = (typeof ativar === 'boolean') ? ativar : !wrap.classList.contains('tela-cheia');
+        const el = rolagem();
+        // guarda a posição de leitura para não perdê-la ao alternar
+        const fim = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+        const prop = el.scrollHeight ? el.scrollTop / el.scrollHeight : 0;
+        if (ligado) paineis.forEach(p => { if (p.wrap !== wrap) p.alternar(false); });
+        wrap.classList.toggle('tela-cheia', ligado);
+        document.body.classList.toggle('painel-tela-cheia', paineis.some(p => p.wrap.classList.contains('tela-cheia')));
+        botao.textContent = ligado ? '✕ Sair da tela cheia' : '⛶ Tela cheia';
+        botao.title = ligado ? 'Voltar ao tamanho normal (Esc)' : `Expandir ${nome} para a tela inteira (Esc para voltar)`;
+        const el2 = rolagem();
+        el2.scrollTop = (fim && rolagemSel === '#log-panel') ? el2.scrollHeight : prop * el2.scrollHeight;
+      }
+
+      botao.addEventListener('click', () => alternar());
+      paineis.push({ wrap, alternar });
     }
 
-    botao.addEventListener('click', () => alternar());
+    registrar('log-wrap', 'btn-log-fullscreen', '#log-panel', 'o log');
+    registrar('hist-wrap', 'btn-hist-fullscreen', '.hist-scroll', 'o histórico');
+
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && wrap.classList.contains('tela-cheia')) alternar(false);
+      if (e.key !== 'Escape') return;
+      paineis.forEach(p => { if (p.wrap.classList.contains('tela-cheia')) p.alternar(false); });
     });
+  })();
+
+  // ── Tema claro / escuro ───────────────────────────────────────────
+  (function () {
+    const botao = document.getElementById('btn-tema');
+    function atualizarBotao() {
+      const escuro = document.documentElement.dataset.tema === 'escuro';
+      botao.textContent = escuro ? '☀️ Claro' : '🌙 Escuro';
+    }
+    botao.addEventListener('click', () => {
+      const escuro = document.documentElement.dataset.tema !== 'escuro';
+      if (escuro) document.documentElement.dataset.tema = 'escuro';
+      else delete document.documentElement.dataset.tema;
+      try { localStorage.setItem('aco-tema', escuro ? 'escuro' : 'claro'); } catch (e) {}
+      atualizarBotao();
+      // o grafo lê o tema a cada quadro; o gráfico de evolução precisa ser avisado
+      document.dispatchEvent(new Event('temachange'));
+    });
+    atualizarBotao();
   })();
 
   // ── Botões de zoom ────────────────────────────────────────────────
