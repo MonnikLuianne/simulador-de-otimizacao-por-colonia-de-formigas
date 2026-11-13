@@ -485,6 +485,7 @@
         <div class="legend-labels"><span>τ = <b id="legend-min">0</b></span><span>τ = <b id="legend-max">1</b></span></div>
         <div id="scale-note" class="scale-note"></div>
         <div style="margin-top:5px;font-size:9px">— Melhor rota <span style="color:var(--accent2)">■</span></div>
+        <div style="margin-top:4px;font-size:9px;opacity:.75">Roda do mouse: zoom · arrastar: mover · duplo clique: centralizar</div>
         <div style="font-size:9px;margin-top:2px">🟠 Depósito &nbsp; 🔵 Entrega</div>
       </div>
     </main>
@@ -543,13 +544,13 @@
 </div>
 
 
-<script src="js/rng.js?v=6"></script>
-<script src="js/graph.js?v=6"></script>
-<script src="js/aco.js?v=6"></script>
-<script src="js/renderer2d.js?v=6"></script>
-<script src="js/charts.js?v=6"></script>
-<script src="js/logger.js?v=6"></script>
-<script src="js/main.js?v=6"></script>
+<script src="js/rng.js?v=7"></script>
+<script src="js/graph.js?v=7"></script>
+<script src="js/aco.js?v=7"></script>
+<script src="js/renderer2d.js?v=7"></script>
+<script src="js/charts.js?v=7"></script>
+<script src="js/logger.js?v=7"></script>
+<script src="js/main.js?v=7"></script>
 
 <script>
   // ── Contador de vértices ──────────────────────────────────────────
@@ -572,7 +573,8 @@
     let startY   = 0;
     let startH   = 0;
 
-    bottomPanel.style.height = '300px';
+    // altura inicial proporcional à janela, para sobrar espaço para o grafo
+    bottomPanel.style.height = Math.round(Math.max(160, Math.min(300, window.innerHeight * 0.32))) + 'px';
 
     handle.addEventListener('mousedown', e => {
       dragging = true;
