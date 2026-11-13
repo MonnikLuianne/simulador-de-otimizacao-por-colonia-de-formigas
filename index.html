@@ -226,6 +226,7 @@
     .route-cell { text-align: left !important; color: var(--muted); font-size: 9px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .options-row { display: flex; flex-direction: column; gap: 6px; }
+    .aviso-visualizacao { position: absolute; bottom: 12px; right: 12px; max-width: 45%; background: rgba(42,21,5,0.92); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 4px 12px; font-size: 11px; z-index: 9; text-align: center; }
     .edge-hint { font-size: 10px; color: var(--muted); margin: 2px 0 6px; line-height: 1.4; }
     #edge-table-wrap { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); }
     .edge-table tbody tr { cursor: pointer; }
@@ -543,7 +544,7 @@
 </div>
 
 <script>
-THREE.OrbitControls = function(camera, domElement) {
+if (typeof THREE !== 'undefined') THREE.OrbitControls = function(camera, domElement) {
   this.camera = camera;
   this.domElement = domElement;
   this.target = new THREE.Vector3();
@@ -623,13 +624,14 @@ THREE.OrbitControls = function(camera, domElement) {
 };
 </script>
 
-<script src="js/rng.js?v=4"></script>
-<script src="js/graph.js?v=4"></script>
-<script src="js/aco.js?v=4"></script>
-<script src="js/renderer3d.js?v=4"></script>
-<script src="js/charts.js?v=4"></script>
-<script src="js/logger.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/rng.js?v=5"></script>
+<script src="js/graph.js?v=5"></script>
+<script src="js/aco.js?v=5"></script>
+<script src="js/renderer3d.js?v=5"></script>
+<script src="js/renderer2d.js?v=5"></script>
+<script src="js/charts.js?v=5"></script>
+<script src="js/logger.js?v=5"></script>
+<script src="js/main.js?v=5"></script>
 
 <script>
   // ── Contador de vértices ──────────────────────────────────────────
@@ -683,6 +685,7 @@ THREE.OrbitControls = function(camera, domElement) {
   // ── Botões de zoom ────────────────────────────────────────────────
   (function () {
     function zoomBy(factor) {
+      if (renderer && renderer.is2D) { renderer.zoomBy(factor); return; }
       if (!renderer || !renderer.camera || !renderer.controls) return;
       const cam    = renderer.camera;
       const target = renderer.controls.target;
