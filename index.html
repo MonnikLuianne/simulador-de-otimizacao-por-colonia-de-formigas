@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Colônia de Formigas — Simulador ACO</title>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
   <style>
@@ -147,7 +146,7 @@
     }
 
     #canvas-area { position: relative; background: #06060f; min-height: 0; }
-    #three-canvas { width: 100% !important; height: 100% !important; display: block; }
+    #graph-canvas { width: 100% !important; height: 100% !important; display: block; }
 
     #tooltip {
       position: fixed;
@@ -360,7 +359,7 @@
 <div id="app">
 
   <header id="header">
-    <h1>🐜 Colônia de Formigas <span>— Simulador ACO 3D</span></h1>
+    <h1>🐜 Colônia de Formigas <span>— Simulador ACO</span></h1>
 
     <a href="https://github.com/MonnikLuianne/simulador-de-otimizacao-por-colonia-de-formigas" target="_blank"
    style="font-size:11px;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:3px 10px;border-radius:4px;white-space:nowrap;">
@@ -470,7 +469,7 @@
     </aside>
 
     <main id="canvas-area">
-      <canvas id="three-canvas"></canvas>
+      <canvas id="graph-canvas"></canvas>
       <div id="tooltip"></div>
       <div id="reset-banner">⚠ Dados ou parâmetros alterados — clique em Reiniciar para aplicá-los</div>
       <div id="status-overlay">
@@ -543,95 +542,14 @@
   </div>
 </div>
 
-<script>
-if (typeof THREE !== 'undefined') THREE.OrbitControls = function(camera, domElement) {
-  this.camera = camera;
-  this.domElement = domElement;
-  this.target = new THREE.Vector3();
-  this.enableDamping = true;
-  this.dampingFactor = 0.05;
-  this.minDistance = 50;
-  this.maxDistance = 3000;
 
-  let _spherical = new THREE.Spherical();
-  let _sphericalDelta = new THREE.Spherical();
-  let _scale = 1;
-  let _rotateStart = new THREE.Vector2();
-  let _rotating = false;
-  let _panStart = new THREE.Vector2();
-  let _panning = false;
-  let _panOffset = new THREE.Vector3();
-  let _panDelta = new THREE.Vector2();
-
-  const _offset = new THREE.Vector3();
-  const _quat = new THREE.Quaternion().setFromUnitVectors(camera.up, new THREE.Vector3(0,1,0));
-  const _quatInverse = _quat.clone().invert();
-
-  domElement.addEventListener('contextmenu', e => e.preventDefault());
-  domElement.addEventListener('mousedown', e => {
-    if (e.button === 0) { _rotating = true; _rotateStart.set(e.clientX, e.clientY); }
-    if (e.button === 2) { _panning = true; _panStart.set(e.clientX, e.clientY); }
-  });
-  window.addEventListener('mouseup', () => { _rotating = false; _panning = false; });
-  window.addEventListener('mousemove', e => {
-    if (_rotating) {
-      const dx = e.clientX - _rotateStart.x;
-      const dy = e.clientY - _rotateStart.y;
-      _sphericalDelta.theta -= 2 * Math.PI * dx / domElement.clientWidth;
-      _sphericalDelta.phi -= 2 * Math.PI * dy / domElement.clientHeight;
-      _rotateStart.set(e.clientX, e.clientY);
-    }
-    if (_panning) {
-      _panDelta.set(e.clientX - _panStart.x, e.clientY - _panStart.y);
-      const el = domElement.clientHeight;
-      const dist = camera.position.distanceTo(this.target);
-      const fov = camera.fov * Math.PI / 180;
-      const h = 2 * Math.tan(fov / 2) * dist;
-      _panOffset.x -= _panDelta.x / el * h * camera.aspect;
-      _panOffset.y += _panDelta.y / el * h;
-      _panStart.set(e.clientX, e.clientY);
-    }
-  });
-  domElement.addEventListener('wheel', e => {
-    if (e.deltaY < 0) _scale /= 1.1; else _scale *= 1.1;
-    e.preventDefault();
-  }, { passive: false });
-
-  this.update = function() {
-    _offset.copy(camera.position).sub(this.target);
-    _offset.applyQuaternion(_quat);
-    _spherical.setFromVector3(_offset);
-    _spherical.theta += _sphericalDelta.theta * 0.5;
-    _spherical.phi += _sphericalDelta.phi * 0.5;
-    _spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, _spherical.phi));
-    _spherical.radius *= _scale;
-    _spherical.radius = Math.max(this.minDistance, Math.min(this.maxDistance, _spherical.radius));
-    this.target.add(_panOffset.clone().multiplyScalar(0.5));
-    _offset.setFromSpherical(_spherical);
-    _offset.applyQuaternion(_quatInverse);
-    camera.position.copy(this.target).add(_offset);
-    camera.lookAt(this.target);
-    if (this.enableDamping) {
-      _sphericalDelta.theta *= 1 - this.dampingFactor;
-      _sphericalDelta.phi *= 1 - this.dampingFactor;
-      _panOffset.multiplyScalar(1 - this.dampingFactor);
-    } else {
-      _sphericalDelta.set(0, 0, 0);
-      _panOffset.set(0, 0, 0);
-    }
-    _scale = 1;
-  };
-};
-</script>
-
-<script src="js/rng.js?v=5"></script>
-<script src="js/graph.js?v=5"></script>
-<script src="js/aco.js?v=5"></script>
-<script src="js/renderer3d.js?v=5"></script>
-<script src="js/renderer2d.js?v=5"></script>
-<script src="js/charts.js?v=5"></script>
-<script src="js/logger.js?v=5"></script>
-<script src="js/main.js?v=5"></script>
+<script src="js/rng.js?v=6"></script>
+<script src="js/graph.js?v=6"></script>
+<script src="js/aco.js?v=6"></script>
+<script src="js/renderer2d.js?v=6"></script>
+<script src="js/charts.js?v=6"></script>
+<script src="js/logger.js?v=6"></script>
+<script src="js/main.js?v=6"></script>
 
 <script>
   // ── Contador de vértices ──────────────────────────────────────────
@@ -685,20 +603,13 @@ if (typeof THREE !== 'undefined') THREE.OrbitControls = function(camera, domElem
   // ── Botões de zoom ────────────────────────────────────────────────
   (function () {
     function zoomBy(factor) {
-      if (renderer && renderer.is2D) { renderer.zoomBy(factor); return; }
-      if (!renderer || !renderer.camera || !renderer.controls) return;
-      const cam    = renderer.camera;
-      const target = renderer.controls.target;
-      const dir    = cam.position.clone().sub(target);
-      dir.multiplyScalar(factor);
-      cam.position.copy(target).add(dir);
-      renderer.controls.update();
+      if (renderer && renderer.zoomBy) renderer.zoomBy(factor);
     }
 
     document.getElementById('btn-zoom-in').addEventListener('click', () => zoomBy(0.8));
     document.getElementById('btn-zoom-out').addEventListener('click', () => zoomBy(1.25));
     document.getElementById('btn-zoom-reset').addEventListener('click', () => {
-      if (renderer && renderer.graph) renderer._centerCamera(renderer.graph);
+      if (renderer) renderer._centerCamera();
     });
   })();
 </script>
