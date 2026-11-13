@@ -25,7 +25,7 @@ O simulador implementa o **Ant System clássico** com as seguintes etapas por it
 4. Cada formiga deposita `Q / L` nas arestas que percorreu, onde `L` é o comprimento da sua rota.
 5. A **melhor solução global** é registrada e nunca aumenta entre iterações.
 
-A visualização é feita em 3D com Three.js, com arestas coloridas proporcionalmente ao feromônio e destaque da melhor rota em verde.
+A visualização do grafo é feita em 2D com a API Canvas do navegador, com arestas coloridas e mais espessas conforme o feromônio e destaque da melhor rota em verde.
 
 ---
 
@@ -39,7 +39,7 @@ A visualização é feita em 3D com Three.js, com arestas coloridas proporcional
 6. Qualquer alteração em vértices ou parâmetros pausa a execução e exige **Reiniciar** (aviso amarelo). Reiniciar limpa o histórico, restaura τ₀ em todas as arestas e restabelece a semente.
 7. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
 8. Use os botões **+** / **−** / **⌖** no cabeçalho para zoom e centralização do grafo.
-9. Consulte a distância e o feromônio de cada aresta de duas formas: passando o mouse sobre a aresta no grafo ou pela tabela **Arestas: distância e feromônio** (painel esquerdo), atualizada a cada iteração. Clicar em uma linha da tabela destaca a aresta em branco no grafo; as arestas da melhor rota acumulada são marcadas com ★. Os vértices são identificados por rótulos acima de cada esfera, e o depósito aparece em laranja com a indicação "(depósito)".
+9. Consulte a distância e o feromônio de cada aresta de duas formas: passando o mouse sobre a aresta no grafo ou pela tabela **Arestas: distância e feromônio** (painel esquerdo), atualizada a cada iteração. Clicar em uma linha da tabela destaca a aresta em branco no grafo; as arestas da melhor rota acumulada são marcadas com ★. Os vértices são identificados por rótulos acima de cada círculo, e o depósito aparece em laranja com a indicação "(depósito)".
 10. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga, a melhor rota da iteração e a melhor acumulada e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
 
 ### Escala visual do feromônio
@@ -71,9 +71,8 @@ A cor de cada aresta segue uma escala **logarítmica fixa**: a intensidade é 1 
 
 ## Bibliotecas auxiliares
 
-- **[Three.js r128](https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js)** — renderização 3D do grafo
 - **[Chart.js 3.9.1](https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js)** — gráfico de evolução das distâncias
-- **Visualização 2D de reserva** (`js/renderer2d.js`, Canvas 2D do próprio navegador, sem biblioteca) — usada automaticamente quando o navegador não permite WebGL (aceleração de hardware desativada, driver bloqueado) ou quando o Three.js não carrega. Mostra o mesmo grafo, com a mesma escala de feromônio, destaque da melhor rota, rótulos e consulta de valores pelo cursor; um aviso na tela informa que o modo 2D está ativo. O algoritmo e os resultados não mudam.
+- **Canvas 2D** (API nativa do navegador, sem biblioteca, em `js/renderer2d.js`) — desenho do grafo, das arestas, da melhor rota e da animação opcional das formigas.
 - Se o Chart.js não carregar, a aplicação continua funcionando e o histórico permanece na tabela e no log.
 - **RNG próprio** (`js/rng.js`) — gerador Mulberry32 com semente para reprodutibilidade
 
@@ -202,8 +201,7 @@ testes.html         — testes de validação da seção 6 (executados no navega
 js/graph.js         — vértices e distâncias euclidianas
 js/aco.js           — implementação do Ant System
 js/rng.js           — gerador pseudoaleatório com semente (Mulberry32)
-js/renderer3d.js    — visualização 3D com Three.js
-js/renderer2d.js    — visualização 2D de reserva (sem WebGL)
+js/renderer2d.js    — visualização do grafo em 2D (Canvas)
 js/charts.js        — gráfico de evolução das distâncias
 js/logger.js        — histórico e log de execução
 js/main.js          — integração da interface e controles
