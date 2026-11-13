@@ -38,7 +38,7 @@ A visualização é feita em 3D com Three.js, com arestas coloridas proporcional
 5. Qualquer alteração em vértices ou parâmetros pausa a execução e exige **Reiniciar** (aviso amarelo). Reiniciar limpa o histórico, restaura τ₀ em todas as arestas e restabelece a semente.
 6. Arraste a borda superior do painel inferior para ampliar o gráfico de evolução e o log.
 7. Use os botões **+** / **−** / **⌖** no cabeçalho para zoom e centralização do grafo.
-8. Passe o mouse sobre as arestas para ver a distância e o feromônio numérico atual.
+8. Consulte a distância e o feromônio de cada aresta de duas formas: passando o mouse sobre a aresta no grafo ou pela tabela **Arestas: distância e feromônio** (painel esquerdo), atualizada a cada iteração. Clicar em uma linha da tabela destaca a aresta em branco no grafo; as arestas da melhor rota acumulada são marcadas com ★. Os vértices são identificados por rótulos acima de cada esfera, e o depósito aparece em laranja com a indicação "(depósito)".
 9. O log mostra, a cada iteração: a construção completa da rota da formiga 1 (vértice atual, candidatos com probabilidades, vértice sorteado, retorno ao depósito e comprimento), o comprimento da rota de cada formiga, a melhor rota da iteração e a melhor acumulada e, para cada aresta, o feromônio anterior, após evaporação, o depósito total e o final.
 
 ### Escala visual do feromônio
@@ -48,7 +48,7 @@ A cor de cada aresta segue uma escala **logarítmica fixa**: a intensidade é 1 
 - A referência τ_ref começa em τ₀ e só aumenta (é o maior feromônio já observado na execução). Por isso, uma aresta cujo feromônio diminuiu nunca aparece mais intensa.
 - A legenda mostra os limites numéricos da escala, o mínimo e o máximo atuais e avisa sempre que τ_ref muda.
 - A escala logarítmica mantém o contraste mesmo quando os depósitos Q/L são pequenos perto de τ₀ (por exemplo, no cenário inicial, com distâncias de centenas de unidades e Q = 14).
-- O valor exato de cada aresta aparece ao passar o mouse sobre ela.
+- O valor exato de cada aresta aparece ao passar o mouse sobre ela e na tabela de arestas. Feromônios muito pequenos (abaixo de 10⁻⁴) são exibidos em notação científica (ex.: 7,610e-9) no log, no tooltip e na tabela, para não serem confundidos com zero; os cálculos internos não são arredondados.
 
 ---
 
