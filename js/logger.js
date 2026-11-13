@@ -22,15 +22,26 @@ class Logger {
     const row = { iter, iterBest, avg, bestAcc, routeStr };
     this.rows.push(row);
 
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+    // Duas linhas por iteração: os números e, abaixo, a rota completa
+    // (sem cortar com "..." mesmo com muitos vértices).
+    const trNums = document.createElement('tr');
+    trNums.className = 'iter-nums';
+    trNums.innerHTML = `
       <td>${iter}</td>
       <td>${iterBest.toFixed(4)}</td>
       <td>${avg.toFixed(4)}</td>
       <td>${bestAcc.toFixed(4)}</td>
-      <td class="route-cell" title="${routeStr}">${routeStr}</td>
     `;
-    this.tbody.prepend(tr); // mais recente no topo
+    const trRota = document.createElement('tr');
+    trRota.className = 'iter-route';
+    const td = document.createElement('td');
+    td.colSpan = 4;
+    td.className = 'route-cell';
+    td.textContent = routeStr;
+    trRota.appendChild(td);
+
+    this.tbody.prepend(trRota); // mais recente no topo
+    this.tbody.prepend(trNums);
   }
 
   logPheromone(pheromoneLog) {
