@@ -13,6 +13,7 @@ let simRunning = false;
 let simPaused = false;
 let needsReset = true;
 let _runAllPromise = null;
+let selectedEdgeKey = null; // aresta destacada pela tabela de arestas
 
 // ─── Inicialização ────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -32,6 +33,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-step').addEventListener('click', _onStep);
   document.getElementById('btn-reset').addEventListener('click', _onReset);
   document.getElementById('btn-add-vertex').addEventListener('click', _onAddVertex);
+  document.getElementById('edge-tbody').addEventListener('click', _onEdgeRowClick);
 
   document.querySelectorAll('.param-field').forEach(el => {
     el.addEventListener('input', _onConfigChange);
@@ -231,6 +233,62 @@ function _buildScene() {
   );
 
   renderer.buildScene(graph, _getDepotId(), tau);
+  _renderEdgeTable(tau, graph, null, 0);
+}
+
+// ─── Tabela de arestas (distância × feromônio) ────────────────────────────────
+function _renderEdgeTable(tau, g, bestRoute, iter) {
+  const tbody = document.getElementById('edge-tbody');
+  if (!tbody) return;
+
+  const naMelhor = new Set();
+  if (bestRoute) {
+    for (let s = 0; s < bestRoute.length - 1; s++) {
+      const a = Math.min(bestRoute[s], bestRoute[s + 1]);
+      const b = Math.max(bestRoute[s], bestRoute[s + 1]);
+      naMelhor.add(`${a}-${b}`);
+    }
+  }
+
+  // Se o grafo mudou e a aresta selecionada não existe mais, remove a seleção
+  if (selectedEdgeKey) {
+    const [a, b] = selectedEdgeKey.split('-').map(Number);
+    if (!(a < g.n && b < g.n)) selectedEdgeKey = null;
+  }
+  renderer.setSelectedEdge(selectedEdgeKey);
+
+  const linhas = [];
+  for (let i = 0; i < g.n; i++) {
+    for (let j = i + 1; j < g.n; j++) {
+      const key = `${i}-${j}`;
+      const cls = [naMelhor.has(key) ? 'on-best' : '', key === selectedEdgeKey ? 'selected' : '']
+        .filter(Boolean).join(' ');
+      linhas.push(
+        `<tr data-edge="${key}" class="${cls}">` +
+        `<td>${g.vertices[i].id}–${g.vertices[j].id}${naMelhor.has(key) ? ' ★' : ''}</td>` +
+        `<td>${g.dist[i][j].toFixed(4)}</td>` +
+        `<td>${fmtTauLog(tau[i][j])}</td></tr>`
+      );
+    }
+  }
+  tbody.innerHTML = linhas.join('');
+
+  const nota = document.getElementById('edge-iter-note');
+  if (nota) {
+    nota.textContent = iter > 0
+      ? `Valores após a iteração ${iter}. ★ = aresta da melhor rota acumulada.`
+      : 'Iteração 0: τ = τ₀ em todas as arestas.';
+  }
+}
+
+function _onEdgeRowClick(e) {
+  const tr = e.target.closest('tr[data-edge]');
+  if (!tr) return;
+  const key = tr.dataset.edge;
+  selectedEdgeKey = (selectedEdgeKey === key) ? null : key;
+  renderer.setSelectedEdge(selectedEdgeKey);
+  document.querySelectorAll('#edge-tbody tr').forEach(r =>
+    r.classList.toggle('selected', r.dataset.edge === selectedEdgeKey));
 }
 
 function _getDepotId() {
@@ -433,6 +491,7 @@ function _onIterComplete(result, g) {
   const escala = renderer.updatePheromones(result.tau, g);
   _updateLegend(escala, result.iter);
   renderer.highlightBestRoute(result.bestRoute, g);
+  _renderEdgeTable(result.tau, g, result.bestRoute, result.iter);
 
   if (document.getElementById('chk-animate-ants')?.checked) {
     renderer.launchAnts(
