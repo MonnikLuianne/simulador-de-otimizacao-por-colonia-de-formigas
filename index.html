@@ -226,6 +226,11 @@
     .route-cell { text-align: left !important; color: var(--muted); font-size: 9px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .options-row { display: flex; flex-direction: column; gap: 6px; }
+    .edge-hint { font-size: 10px; color: var(--muted); margin: 2px 0 6px; line-height: 1.4; }
+    #edge-table-wrap { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+    .edge-table tbody tr { cursor: pointer; }
+    .edge-table tbody tr.on-best td:first-child { color: var(--accent2); }
+    .edge-table tbody tr.selected td { background: #2a2a55 !important; color: #fff; }
     .chk-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); cursor: pointer; }
     .chk-row input { accent-color: var(--accent2); }
 
@@ -449,6 +454,18 @@
           <label class="chk-row"><input type="checkbox" id="chk-log-pheromone" checked/> Log de feromônios</label>
         </div>
       </div>
+
+      <div>
+        <div class="section-title">Arestas: distância e feromônio</div>
+        <div class="edge-hint">Distância é o custo fixo da aresta; τ é atualizado a cada iteração. Clique em uma linha para destacar a aresta no grafo (ou passe o cursor sobre a aresta no grafo).</div>
+        <div id="edge-table-wrap">
+          <table class="hist-table edge-table">
+            <thead><tr><th>Aresta</th><th>Distância</th><th>τ atual</th></tr></thead>
+            <tbody id="edge-tbody"></tbody>
+          </table>
+        </div>
+        <div class="edge-hint" id="edge-iter-note">Iteração 0: τ = τ₀ em todas as arestas.</div>
+      </div>
     </aside>
 
     <main id="canvas-area">
@@ -606,13 +623,13 @@ THREE.OrbitControls = function(camera, domElement) {
 };
 </script>
 
-<script src="js/rng.js?v=3"></script>
-<script src="js/graph.js?v=3"></script>
-<script src="js/aco.js?v=3"></script>
-<script src="js/renderer3d.js?v=3"></script>
-<script src="js/charts.js?v=3"></script>
-<script src="js/logger.js?v=3"></script>
-<script src="js/main.js?v=3"></script>
+<script src="js/rng.js?v=4"></script>
+<script src="js/graph.js?v=4"></script>
+<script src="js/aco.js?v=4"></script>
+<script src="js/renderer3d.js?v=4"></script>
+<script src="js/charts.js?v=4"></script>
+<script src="js/logger.js?v=4"></script>
+<script src="js/main.js?v=4"></script>
 
 <script>
   // ── Contador de vértices ──────────────────────────────────────────
