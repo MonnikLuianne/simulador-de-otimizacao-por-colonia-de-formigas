@@ -286,6 +286,19 @@
       gap: 4px;
       min-height: 0;
     }
+    /* Log em tela cheia */
+    #log-wrap.tela-cheia {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: var(--surface);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    #log-wrap.tela-cheia #log-panel { font-size: 13px; line-height: 1.55; padding: 12px 14px; }
+    body.log-tela-cheia { overflow: hidden; }
+
     #log-panel {
       flex: 1;
       min-height: 0;
@@ -524,7 +537,10 @@
     <div id="log-wrap">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div class="section-title" style="margin:0;padding:0;border:none">Log de execução</div>
-        <button class="btn-sm" onclick="document.getElementById('log-panel').textContent=''">Limpar</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-sm" id="btn-log-fullscreen" title="Expandir o log para a tela inteira (Esc para voltar)">⛶ Tela cheia</button>
+          <button class="btn-sm" onclick="document.getElementById('log-panel').textContent=''">Limpar</button>
+        </div>
       </div>
       <pre id="log-panel"></pre>
     </div>
@@ -604,6 +620,30 @@
       handle.classList.remove('dragging');
       document.body.style.cursor     = '';
       document.body.style.userSelect = '';
+    });
+  })();
+
+  // ── Log em tela cheia (Esc ou o mesmo botão para voltar) ─────────
+  (function () {
+    const wrap  = document.getElementById('log-wrap');
+    const botao = document.getElementById('btn-log-fullscreen');
+    const panel = document.getElementById('log-panel');
+
+    function alternar(ativar) {
+      const ligado = (typeof ativar === 'boolean') ? ativar : !wrap.classList.contains('tela-cheia');
+      // guarda a posição relativa da rolagem para não perder o ponto de leitura
+      const fim = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 4;
+      const prop = panel.scrollHeight ? panel.scrollTop / panel.scrollHeight : 0;
+      wrap.classList.toggle('tela-cheia', ligado);
+      document.body.classList.toggle('log-tela-cheia', ligado);
+      botao.textContent = ligado ? '✕ Sair da tela cheia' : '⛶ Tela cheia';
+      botao.title = ligado ? 'Voltar ao tamanho normal (Esc)' : 'Expandir o log para a tela inteira (Esc para voltar)';
+      panel.scrollTop = fim ? panel.scrollHeight : prop * panel.scrollHeight;
+    }
+
+    botao.addEventListener('click', () => alternar());
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && wrap.classList.contains('tela-cheia')) alternar(false);
     });
   })();
 
