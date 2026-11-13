@@ -3,11 +3,18 @@ const DECADAS_ESCALA = 6; // ordens de grandeza cobertas pela escala de cor
 /**
  * renderer2d.js — Visualização do grafo em 2D (Canvas)
  *
- * Desenha o grafo completo com as arestas coloridas pelo feromônio (escala
- * logarítmica), destaque da melhor rota acumulada, rótulos dos vértices e do
- * depósito, consulta de distância e feromônio pelo cursor e animação opcional
- * das formigas. Usa apenas a API Canvas 2D do navegador (sem bibliotecas).
- * Ela só desenha: nenhum cálculo do algoritmo depende dela.
+ * Desenha o grafo completo com as arestas coloridas e engrossadas conforme o
+ * feromônio (escala logarítmica), destaque da melhor rota acumulada, rótulos
+ * dos vértices e do depósito, consulta de distância e feromônio pelo cursor e
+ * animação opcional das formigas. Usa apenas a API Canvas 2D do navegador.
+ *
+ * Legibilidade:
+ *  - o grafo ocupa a maior área livre do painel, desviando dos quadros de
+ *    status e de legenda (o espaço é recalculado quando a janela muda);
+ *  - zoom pelos botões ou pela roda do mouse; arrastar move a vista;
+ *  - rótulos com fundo, posicionados para fora do grafo para não cobrir arestas.
+ *
+ * Esta classe só desenha: nenhum cálculo do algoritmo depende dela.
  */
 class Renderer2D {
   constructor(canvasEl) {
@@ -23,19 +30,42 @@ class Renderer2D {
     this.antAnimations = [];
     this.tooltip = document.getElementById('tooltip');
     this.zoom = 1;
+    this.pan = { x: 0, y: 0 };  // deslocamento da vista em pixels
+    this.view = null;           // { ox, oy, s, cx, cy } calculado a cada quadro
     this.is2D = true;
 
+    this._arrastando = false;
+    this._ultimoMouse = null;
+
+    this.canvas.style.cursor = 'grab';
     this.canvas.addEventListener('mousemove', e => this._onMouseMove(e));
     this.canvas.addEventListener('mouseleave', () => {
       this.hoveredEdge = null;
+      this._arrastando = false;
+      this.canvas.style.cursor = 'grab';
       if (this.tooltip) this.tooltip.style.display = 'none';
     });
+    this.canvas.addEventListener('mousedown', e => {
+      this._arrastando = true;
+      this._ultimoMouse = { x: e.clientX, y: e.clientY };
+      this.canvas.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mouseup', () => {
+      this._arrastando = false;
+      this.canvas.style.cursor = 'grab';
+    });
+    this.canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      this.zoomBy(e.deltaY < 0 ? 0.9 : 1.1);
+    }, { passive: false });
+    this.canvas.addEventListener('dblclick', () => this._centerCamera());
+
     window.addEventListener('resize', () => this._resize());
     this._resize();
     this._animate();
   }
 
-  // ── Tamanho e transformação de coordenadas ─────────────────────────────────
+  // ── Tamanho e área livre ───────────────────────────────────────────────────
   _resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const W = this.canvas.clientWidth || 800;
@@ -58,19 +88,73 @@ class Renderer2D {
     return { minX, maxX, minY, maxY };
   }
 
-  /** Coordenadas do problema → pixels (eixo y para cima, como em um plano cartesiano). */
-  _toScreen(x, y) {
+  /** Retângulo (em pixels do canvas) ocupado por um quadro sobreposto. */
+  _retanguloOverlay(id) {
+    const el = document.getElementById(id);
+    if (!el || el.offsetParent === null) return null;
+    const c = this.canvas.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return { x0: r.left - c.left, y0: r.top - c.top, x1: r.right - c.left, y1: r.bottom - c.top };
+  }
+
+  /**
+   * Escolhe a maior região retangular que não fica embaixo dos quadros de
+   * status (canto superior direito) e de legenda (canto inferior esquerdo).
+   */
+  _areaLivre() {
+    const W = this.W, H = this.H, m = 8;
+    const st = this._retanguloOverlay('status-overlay');
+    const lg = this._retanguloOverlay('tau-legend');
+
+    const candidatos = [{ x0: 0, y0: 0, x1: W, y1: H }];
+    if (st || lg) {
+      const stL = st ? st.x0 - m : W, stB = st ? st.y1 + m : 0;
+      const lgR = lg ? lg.x1 + m : 0, lgT = lg ? lg.y0 - m : H;
+      candidatos.length = 0;
+      candidatos.push(
+        { x0: lgR, y0: 0,   x1: stL, y1: H },   // faixa entre os dois quadros
+        { x0: 0,   y0: 0,   x1: stL, y1: lgT }, // à esquerda do status, acima da legenda
+        { x0: lgR, y0: stB, x1: W,   y1: H },   // à direita da legenda, abaixo do status
+        { x0: 0,   y0: stB, x1: W,   y1: lgT }  // entre o status e a legenda (vertical)
+      );
+    }
+
     const { minX, maxX, minY, maxY } = this._bounds();
-    // margens deixam espaço para os painéis sobrepostos (status e legenda)
-    const padL = 90, padR = 250, padT = 60, padB = 170;
-    const spanX = Math.max(maxX - minX, 1);
-    const spanY = Math.max(maxY - minY, 1);
-    const areaW = Math.max(this.W - padL - padR, 50);
-    const areaH = Math.max(this.H - padT - padB, 50);
-    const s = Math.min(areaW / spanX, areaH / spanY) * this.zoom;
-    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-    const ox = padL + areaW / 2, oy = padT + areaH / 2;
-    return { x: ox + (x - cx) * s, y: oy - (y - cy) * s };
+    const spanX = Math.max(maxX - minX, 1), spanY = Math.max(maxY - minY, 1);
+    const folga = 46; // espaço para nós e rótulos nas bordas
+
+    let melhor = null;
+    for (const r of candidatos) {
+      const w = r.x1 - r.x0 - 2 * folga, h = r.y1 - r.y0 - 2 * folga;
+      if (w <= 20 || h <= 20) continue;
+      const s = Math.min(w / spanX, h / spanY);
+      if (!melhor || s > melhor.s) melhor = { s, r };
+    }
+    if (!melhor) {
+      // painel muito pequeno: usa a área toda
+      const w = Math.max(W - 2 * folga, 20), h = Math.max(H - 2 * folga, 20);
+      melhor = { s: Math.min(w / spanX, h / spanY), r: { x0: 0, y0: 0, x1: W, y1: H } };
+    }
+    return melhor;
+  }
+
+  _atualizarVista() {
+    const { minX, maxX, minY, maxY } = this._bounds();
+    const { s, r } = this._areaLivre();
+    this.view = {
+      s: s * this.zoom,
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+      ox: (r.x0 + r.x1) / 2 + this.pan.x,
+      oy: (r.y0 + r.y1) / 2 + this.pan.y,
+    };
+  }
+
+  /** Coordenadas do problema → pixels (eixo y para cima, como no plano cartesiano). */
+  _toScreen(x, y) {
+    if (!this.view) this._atualizarVista();
+    const v = this.view;
+    return { x: v.ox + (x - v.cx) * v.s, y: v.oy - (y - v.cy) * v.s };
   }
 
   // ── Interface usada por main.js ────────────────────────────────────────────
@@ -120,16 +204,18 @@ class Renderer2D {
     this.antAnimations = [];
   }
 
-  /** Usado pelos botões de zoom do cabeçalho. */
+  /** Botões de zoom e roda do mouse (fator < 1 aproxima). */
   zoomBy(factor) {
-    this.zoom = Math.max(0.3, Math.min(5, this.zoom / factor));
+    this.zoom = Math.max(0.4, Math.min(6, this.zoom / factor));
   }
 
+  /** Botão ⌖ ou duplo clique: volta ao enquadramento automático. */
   _centerCamera() {
     this.zoom = 1;
+    this.pan = { x: 0, y: 0 };
   }
 
-  // ── Escala de feromônio (logarítmica) ─────────────────────────
+  // ── Escala de feromônio (logarítmica) ─────────────────────────────────────
   _tauStats(tau, graph) {
     let mn = Infinity, mx = -Infinity;
     for (let i = 0; i < graph.n; i++) {
@@ -154,12 +240,20 @@ class Renderer2D {
     return `rgba(${r},${g},${b},${alpha})`;
   }
 
-  // ── Consulta de distância e feromônio pelo cursor ──────────────────────────
+  // ── Mouse: arrastar a vista e consultar arestas ────────────────────────────
   _onMouseMove(e) {
+    if (this._arrastando && this._ultimoMouse) {
+      this.pan.x += e.clientX - this._ultimoMouse.x;
+      this.pan.y += e.clientY - this._ultimoMouse.y;
+      this._ultimoMouse = { x: e.clientX, y: e.clientY };
+      if (this.tooltip) this.tooltip.style.display = 'none';
+      return;
+    }
     if (!this.graph || !this.currentTau) return;
+
     const rect = this.canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    let best = null, bestD = 8; // tolerância de 8 px
+    let best = null, bestD = 7; // tolerância em pixels
 
     for (let i = 0; i < this.graph.n; i++) {
       for (let j = i + 1; j < this.graph.n; j++) {
@@ -193,8 +287,7 @@ class Renderer2D {
     const len2 = dx * dx + dy * dy;
     let t = len2 ? ((px - a.x) * dx + (py - a.y) * dy) / len2 : 0;
     t = Math.max(0, Math.min(1, t));
-    const qx = a.x + t * dx, qy = a.y + t * dy;
-    return Math.hypot(px - qx, py - qy);
+    return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
   }
 
   // ── Desenho ────────────────────────────────────────────────────────────────
@@ -215,88 +308,177 @@ class Renderer2D {
     this._draw();
   }
 
+  _fundo() {
+    const ctx = this.ctx;
+    const grad = ctx.createRadialGradient(this.W / 2, this.H / 2, 0, this.W / 2, this.H / 2, Math.max(this.W, this.H) * 0.7);
+    grad.addColorStop(0, '#0d0d22');
+    grad.addColorStop(1, '#05050d');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.W, this.H);
+
+    // grade discreta, apenas decorativa
+    ctx.strokeStyle = 'rgba(80,90,160,0.07)';
+    ctx.lineWidth = 1;
+    const passo = 32;
+    ctx.beginPath();
+    for (let x = (this.pan.x % passo + passo) % passo; x < this.W; x += passo) { ctx.moveTo(x, 0); ctx.lineTo(x, this.H); }
+    for (let y = (this.pan.y % passo + passo) % passo; y < this.H; y += passo) { ctx.moveTo(0, y); ctx.lineTo(this.W, y); }
+    ctx.stroke();
+  }
+
   _draw() {
     const ctx = this.ctx;
-    ctx.fillStyle = '#060610';
-    ctx.fillRect(0, 0, this.W, this.H);
+    this._fundo();
     if (!this.graph || !this.graph.n || !this.currentTau) return;
 
+    this._atualizarVista();
     const g = this.graph;
     const P = g.vertices.map(v => this._toScreen(v.x, v.y));
 
-    // Arestas coloridas pelo feromônio
+    // Tamanhos proporcionais ao espaço disponível (com limites)
+    const lado = Math.min(this.W, this.H);
+    const rNo = Math.max(7, Math.min(13, lado / 38));
+    const fonte = Math.max(12, Math.min(16, lado / 30));
+    const espMax = Math.max(3, Math.min(7, lado / 70));
+
+    ctx.lineCap = 'round';
+
+    // 1) Arestas: as de menor feromônio primeiro, as mais fortes por cima
+    const arestas = [];
     for (let i = 0; i < g.n; i++) {
       for (let j = i + 1; j < g.n; j++) {
-        const key = `${i}-${j}`;
-        const t = this._tauToVisual(this.currentTau[i][j]);
-        ctx.beginPath();
-        ctx.moveTo(P[i].x, P[i].y);
-        ctx.lineTo(P[j].x, P[j].y);
-        if (key === this.selectedEdge || key === this.hoveredEdge) {
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 3;
-        } else {
-          ctx.strokeStyle = this._tauColor(t, 0.35 + t * 0.6);
-          ctx.lineWidth = 1 + t * 4;
-        }
-        ctx.stroke();
+        arestas.push({ i, j, key: `${i}-${j}`, t: this._tauToVisual(this.currentTau[i][j]) });
       }
     }
-
-    // Melhor rota acumulada
-    if (this.bestRoute) {
-      ctx.strokeStyle = 'rgba(0,255,170,0.95)';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([]);
+    arestas.sort((a, b) => a.t - b.t);
+    for (const a of arestas) {
       ctx.beginPath();
-      this.bestRoute.forEach((idx, k) => {
-        if (k === 0) ctx.moveTo(P[idx].x, P[idx].y);
-        else ctx.lineTo(P[idx].x, P[idx].y);
-      });
+      ctx.moveTo(P[a.i].x, P[a.i].y);
+      ctx.lineTo(P[a.j].x, P[a.j].y);
+      ctx.strokeStyle = this._tauColor(a.t, 0.18 + a.t * 0.72);
+      ctx.lineWidth = 0.8 + a.t * (espMax - 0.8);
       ctx.stroke();
-      // repõe a aresta selecionada por cima da rota
-      if (this.selectedEdge) {
-        const [a, b] = this.selectedEdge.split('-').map(Number);
-        if (P[a] && P[b]) {
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 3;
-          ctx.beginPath(); ctx.moveTo(P[a].x, P[a].y); ctx.lineTo(P[b].x, P[b].y); ctx.stroke();
-        }
-      }
     }
 
-    // Formigas (opcional, apenas visual)
-    ctx.fillStyle = '#ffcc00';
+    // 2) Melhor rota acumulada, com brilho
+    if (this.bestRoute) {
+      const tracar = () => {
+        ctx.beginPath();
+        this.bestRoute.forEach((idx, k) => {
+          if (k === 0) ctx.moveTo(P[idx].x, P[idx].y);
+          else ctx.lineTo(P[idx].x, P[idx].y);
+        });
+      };
+      ctx.save();
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = 'rgba(0,255,170,0.7)';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = 'rgba(0,255,170,0.35)';
+      ctx.lineWidth = espMax + 4;
+      tracar(); ctx.stroke();
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(0,255,170,0.95)';
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round';
+      tracar(); ctx.stroke();
+    }
+
+    // 3) Aresta selecionada na tabela ou sob o cursor
+    for (const key of [this.selectedEdge, this.hoveredEdge]) {
+      if (!key) continue;
+      const [a, b] = key.split('-').map(Number);
+      if (!P[a] || !P[b]) continue;
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,255,255,0.8)';
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(P[a].x, P[a].y); ctx.lineTo(P[b].x, P[b].y); ctx.stroke();
+      ctx.restore();
+    }
+
+    // 4) Formigas (opcional, apenas visual)
+    ctx.save();
+    ctx.fillStyle = '#ffd23f';
+    ctx.shadowColor = 'rgba(255,190,0,0.9)';
+    ctx.shadowBlur = 6;
     for (const anim of this.antAnimations) {
       const a = anim.path[anim.segIndex], b = anim.path[anim.segIndex + 1];
       if (!a || !b) continue;
       const pa = this._toScreen(a.x, a.y), pb = this._toScreen(b.x, b.y);
       ctx.beginPath();
-      ctx.arc(pa.x + (pb.x - pa.x) * anim.t, pa.y + (pb.y - pa.y) * anim.t, 4, 0, 2 * Math.PI);
+      ctx.arc(pa.x + (pb.x - pa.x) * anim.t, pa.y + (pb.y - pa.y) * anim.t, Math.max(3, rNo * 0.35), 0, 2 * Math.PI);
       ctx.fill();
     }
+    ctx.restore();
 
-    // Vértices e rótulos
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.font = 'bold 15px sans-serif';
+    // 5) Vértices
+    const centro = P.reduce((acc, p) => ({ x: acc.x + p.x / P.length, y: acc.y + p.y / P.length }), { x: 0, y: 0 });
     g.vertices.forEach((v, i) => {
       const isDepot = v.id === this.depotId;
-      const r = isDepot ? 11 : 7;
-      ctx.beginPath();
-      ctx.arc(P[i].x, P[i].y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = isDepot ? '#ff6600' : '#3399ff';
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = isDepot ? '#ffa04d' : '#aaddff';
-      ctx.stroke();
+      const r = isDepot ? rNo * 1.35 : rNo;
+      const p = P[i];
 
-      const label = isDepot ? `${v.id} (depósito)` : v.id;
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = 'rgba(6,6,16,0.95)';
-      ctx.strokeText(label, P[i].x, P[i].y - r - 4);
-      ctx.fillStyle = isDepot ? '#ffa04d' : '#d8f0ff';
-      ctx.fillText(label, P[i].x, P[i].y - r - 4);
+      ctx.save();
+      ctx.shadowColor = isDepot ? 'rgba(255,120,0,0.8)' : 'rgba(60,160,255,0.7)';
+      ctx.shadowBlur = 14;
+      const grad = ctx.createRadialGradient(p.x - r * 0.35, p.y - r * 0.35, r * 0.1, p.x, p.y, r);
+      grad.addColorStop(0, isDepot ? '#ffc38a' : '#bfe3ff');
+      grad.addColorStop(1, isDepot ? '#ff6600' : '#2f86e6');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.fill();
+      ctx.restore();
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = isDepot ? '#ffd2a8' : '#e2f2ff';
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.stroke();
+
+      if (isDepot) { // anel extra no depósito
+        ctx.strokeStyle = 'rgba(255,160,77,0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, 2 * Math.PI); ctx.stroke();
+      }
     });
+
+    // 6) Rótulos com fundo, empurrados para fora do centro do grafo
+    ctx.font = `600 ${fonte}px Inter, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    g.vertices.forEach((v, i) => {
+      const isDepot = v.id === this.depotId;
+      const r = isDepot ? rNo * 1.35 : rNo;
+      const p = P[i];
+      const texto = isDepot ? `${v.id} · depósito` : v.id;
+
+      let dx = p.x - centro.x, dy = p.y - centro.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) { dx = 0; dy = -1; } else { dx /= len; dy /= len; }
+
+      const w = ctx.measureText(texto).width + 12, h = fonte + 8;
+      const dist = r + 6 + Math.max(w * Math.abs(dx), h * Math.abs(dy)) / 2;
+      let lx = p.x + dx * dist, ly = p.y + dy * dist;
+      lx = Math.max(w / 2 + 2, Math.min(this.W - w / 2 - 2, lx));
+      ly = Math.max(h / 2 + 2, Math.min(this.H - h / 2 - 2, ly));
+
+      ctx.fillStyle = isDepot ? 'rgba(60,25,5,0.88)' : 'rgba(10,14,34,0.85)';
+      ctx.strokeStyle = isDepot ? 'rgba(255,160,77,0.8)' : 'rgba(120,170,230,0.55)';
+      ctx.lineWidth = 1;
+      this._retanguloArredondado(lx - w / 2, ly - h / 2, w, h, 6);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = isDepot ? '#ffb46b' : '#e6f3ff';
+      ctx.fillText(texto, lx, ly + 0.5);
+    });
+  }
+
+  _retanguloArredondado(x, y, w, h, r) {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
   }
 }
