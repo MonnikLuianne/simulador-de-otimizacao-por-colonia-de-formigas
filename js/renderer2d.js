@@ -1,12 +1,12 @@
+const DECADAS_ESCALA = 6; // ordens de grandeza cobertas pela escala de cor
+
 /**
- * renderer2d.js — Visualização 2D (Canvas) usada como reserva
+ * renderer2d.js — Visualização do grafo em 2D (Canvas)
  *
- * Quando o navegador não consegue criar um contexto WebGL (aceleração de
- * hardware desativada, driver bloqueado, máquina virtual) ou quando o
- * Three.js não carrega, o Renderer3D não pode ser criado. Esta classe tem a
- * mesma interface usada por main.js e desenha o mesmo grafo em 2D, com a
- * mesma escala de cores do feromônio, destaque da melhor rota, rótulos,
- * consulta de valores pelo cursor e animação opcional das formigas.
+ * Desenha o grafo completo com as arestas coloridas pelo feromônio (escala
+ * logarítmica), destaque da melhor rota acumulada, rótulos dos vértices e do
+ * depósito, consulta de distância e feromônio pelo cursor e animação opcional
+ * das formigas. Usa apenas a API Canvas 2D do navegador (sem bibliotecas).
  * Ela só desenha: nenhum cálculo do algoritmo depende dela.
  */
 class Renderer2D {
@@ -58,7 +58,7 @@ class Renderer2D {
     return { minX, maxX, minY, maxY };
   }
 
-  /** Coordenadas do problema → pixels (eixo y para cima, como no modo 3D). */
+  /** Coordenadas do problema → pixels (eixo y para cima, como em um plano cartesiano). */
   _toScreen(x, y) {
     const { minX, maxX, minY, maxY } = this._bounds();
     // margens deixam espaço para os painéis sobrepostos (status e legenda)
@@ -129,7 +129,7 @@ class Renderer2D {
     this.zoom = 1;
   }
 
-  // ── Escala de feromônio (idêntica à do Renderer3D) ─────────────────────────
+  // ── Escala de feromônio (logarítmica) ─────────────────────────
   _tauStats(tau, graph) {
     let mn = Infinity, mx = -Infinity;
     for (let i = 0; i < graph.n; i++) {
