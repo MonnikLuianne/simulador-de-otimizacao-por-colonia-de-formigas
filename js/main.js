@@ -17,7 +17,7 @@ let selectedEdgeKey = null; // aresta destacada pela tabela de arestas
 
 // ─── Inicialização ────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  renderer = _criarRenderer(document.getElementById('three-canvas'));
+  renderer = _criarRenderer(document.getElementById('graph-canvas'));
   evChart = _criarGrafico('chart-canvas');
   logger = new Logger('history-tbody', 'log-panel');
   rng = new SeededRNG(42);
@@ -52,21 +52,9 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// ─── Criação segura da visualização ──────────────────────────────────────────
-// Se o navegador não tiver WebGL (aceleração de hardware desativada, driver
-// bloqueado etc.) ou se o Three.js não carregar, usa a visualização 2D em
-// Canvas. Assim os controles e o algoritmo continuam funcionando sempre.
+// ─── Criação da visualização ──────────────────────────────────────────────────
 function _criarRenderer(canvas) {
-  try {
-    if (typeof THREE === 'undefined') throw new Error('Three.js não carregou');
-    return new Renderer3D(canvas);
-  } catch (erro) {
-    console.warn('Visualização 3D indisponível, usando 2D:', erro);
-    const novo = canvas.cloneNode(false); // canvas limpo, sem contexto WebGL
-    canvas.replaceWith(novo);
-    _avisoVisualizacao('Visualização em 2D: este navegador não permitiu o modo 3D (WebGL). O algoritmo e os resultados são os mesmos.');
-    return new Renderer2D(novo);
-  }
+  return new Renderer2D(canvas);
 }
 
 function _criarGrafico(canvasId) {
@@ -258,7 +246,7 @@ function _buildDepotSelect() {
   });
 }
 
-// ─── Cena 3D ──────────────────────────────────────────────────────────────────
+// ─── Cena do grafo─────────────────────────────────────────────────────────────
 function _buildScene() {
   const tau0 = parseFloat(document.getElementById('tau0').value) || 1;
   const n = graph.n;
