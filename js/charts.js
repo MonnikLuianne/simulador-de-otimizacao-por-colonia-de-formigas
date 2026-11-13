@@ -6,6 +6,31 @@ class EvolutionChart {
     this.canvas = document.getElementById(canvasId);
     this.chart = null;
     this._init();
+    this.aplicarTema();
+    // troca de tema claro/escuro (botão no cabeçalho)
+    document.addEventListener('temachange', () => this.aplicarTema());
+  }
+
+  /** Cores do gráfico conforme o tema atual (claro é o padrão). */
+  aplicarTema() {
+    const escuro = document.documentElement.dataset.tema === 'escuro';
+    const cor = escuro
+      ? { texto: '#aabbcc', eixo: '#8090b0', grade: '#1a2238', melhor: '#00ffaa', iter: '#ff8844', media: '#7f9ccc' }
+      : { texto: '#1e293b', eixo: '#475569', grade: '#e2e8f0', melhor: '#059669', iter: '#ea580c', media: '#64748b' };
+
+    const ds = this.chart.data.datasets;
+    ds[0].borderColor = cor.melhor; ds[0].pointBackgroundColor = cor.melhor; ds[0].pointBorderColor = cor.melhor;
+    ds[1].borderColor = cor.iter;   ds[1].pointBackgroundColor = cor.iter;   ds[1].pointBorderColor = cor.iter;
+    ds[2].borderColor = cor.media;  ds[2].pointBackgroundColor = cor.media;  ds[2].pointBorderColor = cor.media;
+
+    const o = this.chart.options;
+    o.plugins.legend.labels.color = cor.texto;
+    for (const eixo of [o.scales.x, o.scales.y]) {
+      eixo.title.color = cor.eixo;
+      eixo.ticks.color = cor.eixo;
+      eixo.grid.color = cor.grade;
+    }
+    this.chart.update('none');
   }
 
   _init() {
