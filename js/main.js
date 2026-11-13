@@ -17,8 +17,8 @@ let selectedEdgeKey = null; // aresta destacada pela tabela de arestas
 
 // ─── Inicialização ────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  renderer = new Renderer3D(document.getElementById('three-canvas'));
-  evChart = new EvolutionChart('chart-canvas');
+  renderer = _criarRenderer(document.getElementById('three-canvas'));
+  evChart = _criarGrafico('chart-canvas');
   logger = new Logger('history-tbody', 'log-panel');
   rng = new SeededRNG(42);
 
@@ -51,6 +51,43 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-modal').style.display = 'none';
   });
 });
+
+// ─── Criação segura da visualização ──────────────────────────────────────────
+// Se o navegador não tiver WebGL (aceleração de hardware desativada, driver
+// bloqueado etc.) ou se o Three.js não carregar, usa a visualização 2D em
+// Canvas. Assim os controles e o algoritmo continuam funcionando sempre.
+function _criarRenderer(canvas) {
+  try {
+    if (typeof THREE === 'undefined') throw new Error('Three.js não carregou');
+    return new Renderer3D(canvas);
+  } catch (erro) {
+    console.warn('Visualização 3D indisponível, usando 2D:', erro);
+    const novo = canvas.cloneNode(false); // canvas limpo, sem contexto WebGL
+    canvas.replaceWith(novo);
+    _avisoVisualizacao('Visualização em 2D: este navegador não permitiu o modo 3D (WebGL). O algoritmo e os resultados são os mesmos.');
+    return new Renderer2D(novo);
+  }
+}
+
+function _criarGrafico(canvasId) {
+  try {
+    if (typeof Chart === 'undefined') throw new Error('Chart.js não carregou');
+    return new EvolutionChart(canvasId);
+  } catch (erro) {
+    console.warn('Gráfico de evolução indisponível:', erro);
+    _avisoVisualizacao('O gráfico de evolução não carregou (verifique a conexão). O histórico continua na tabela e no log.');
+    return { addPoint() {}, reset() {} };
+  }
+}
+
+function _avisoVisualizacao(texto) {
+  const area = document.getElementById('canvas-area');
+  if (!area) return;
+  const div = document.createElement('div');
+  div.className = 'aviso-visualizacao';
+  div.textContent = texto;
+  area.appendChild(div);
+}
 
 // ─── Grafo padrão inicial ─────────────────────────────────────────────────────
 function _initDefaultGraph() {
