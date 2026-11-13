@@ -28,6 +28,7 @@ class Renderer3D {
 
     this.currentTau = null;
     this.tauRef = 1;   // referência da escala visual do feromônio
+    this.selectedEdge = null; // aresta escolhida na tabela de arestas ("i-j")
 
     this._init();
   }
@@ -142,7 +143,7 @@ class Renderer3D {
         const vi = this.graph.vertices[si];
         const vj = this.graph.vertices[sj];
         const dist = this.graph.dist[si][sj].toFixed(4);
-        const tau = this.currentTau ? this.currentTau[si][sj].toFixed(6) : '—';
+        const tau = this.currentTau ? fmtTauLog(this.currentTau[si][sj]) : '—';
         if (this.tooltip) {
           this.tooltip.style.display = 'block';
           this.tooltip.style.left = (mx + 14) + 'px';
@@ -270,6 +271,7 @@ class Renderer3D {
     const thickness = 1 + t * 5;
 
     const mat = new THREE.LineBasicMaterial({ color, linewidth: thickness, transparent: true, opacity: 0.4 + t * 0.5 });
+    if (this.selectedEdge === `${i}-${j}`) { mat.color = new THREE.Color(0xffffff); mat.opacity = 1; }
     const geo = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(vi.x, vi.y, 0),
       new THREE.Vector3(vj.x, vj.y, 0),
@@ -300,21 +302,41 @@ class Renderer3D {
   }
 
   _addLabel(text, x, y, isDepot) {
+    // Rótulo maior, com contorno escuro, posicionado acima da esfera para
+    // não ficar escondido; o depósito recebe a indicação "(depósito)".
+    const label = isDepot ? `${text} (depósito)` : text;
+    const fontPx = 56;
     const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 64;
+    const ctx0 = canvas.getContext('2d');
+    ctx0.font = `bold ${fontPx}px sans-serif`;
+    const w = Math.ceil(ctx0.measureText(label).width) + 24;
+    canvas.width = w; canvas.height = 80;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, 128, 64);
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillStyle = isDepot ? '#ff8833' : '#aaddff';
+    ctx.font = `bold ${fontPx}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, 64, 32);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = 'rgba(6,6,16,0.95)';
+    ctx.strokeText(label, w / 2, 40);
+    ctx.fillStyle = isDepot ? '#ffa04d' : '#d8f0ff';
+    ctx.fillText(label, w / 2, 40);
     const tex = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
     const sprite = new THREE.Sprite(mat);
-    sprite.position.set(x, y, 35);
-    sprite.scale.set(80, 40, 1);
+    sprite.renderOrder = 10;
+    const radius = isDepot ? 22 : 14;
+    const h = this._labelHeight();
+    sprite.position.set(x, y + radius + h * 0.75, 40);
+    sprite.scale.set(h * w / 80, h, 1);
     this.scene.add(sprite);
+  }
+
+  /** Altura do rótulo proporcional ao tamanho do grafo (legível com ou sem zoom). */
+  _labelHeight() {
+    if (!this.graph || !this.graph.n) return 40;
+    const xs = this.graph.vertices.map(v => v.x), ys = this.graph.vertices.map(v => v.y);
+    const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 100);
+    return Math.max(28, span * 0.07);
   }
 
   /**
@@ -336,9 +358,19 @@ class Renderer3D {
         entry.line.material.color = this._tauColor(t);
         entry.line.material.opacity = 0.35 + t * 0.6;
         entry.tau = tauVal;
+        if (this.selectedEdge === key) {
+          entry.line.material.color = new THREE.Color(0xffffff);
+          entry.line.material.opacity = 1;
+        }
       }
     }
     return { min, max, ref: this.tauRef, prevRef, changed: this.tauRef !== prevRef };
+  }
+
+  /** Destaca (em branco) a aresta escolhida na tabela; null remove o destaque. */
+  setSelectedEdge(key) {
+    this.selectedEdge = key;
+    if (this.currentTau && this.graph) this.updatePheromones(this.currentTau, this.graph);
   }
 
   highlightBestRoute(route, graph) {
