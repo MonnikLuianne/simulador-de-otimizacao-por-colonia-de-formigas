@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Testes de validação — Colônia de Formigas</title>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; padding: 24px 16px 48px; background: #0b1020; color: #dfe6f5; line-height: 1.5; }
+    main { max-width: 920px; margin: 0 auto; }
+    h1 { margin: 0 0 4px; font-size: 1.5rem; }
+    a { color: #6ee7c5; }
+    code { color: #ffd08a; }
+    #resumo { margin: 16px 0; padding: 12px 16px; border-radius: 10px; font-weight: 700; background: #1a2340; }
+    #resumo.ok { background: #0f3b2e; color: #6ee7c5; }
+    #resumo.falha { background: #4a1620; color: #ff9aa8; }
+    section { margin-bottom: 14px; padding: 14px 16px; background: #121a30; border: 1px solid #25304f; border-radius: 12px; }
+    h2 { margin: 0 0 8px; font-size: 1.05rem; }
+    ul { margin: 0; padding-left: 0; list-style: none; font-size: 0.92rem; }
+    li { padding: 2px 0; overflow-wrap: anywhere; }
+    li::before { display: inline-block; width: 22px; font-weight: 700; }
+    li.ok::before { content: "✓"; color: #6ee7c5; }
+    li.falha::before { content: "✗"; color: #ff9aa8; }
+    li.info::before { content: "•"; color: #8a97b8; }
+    li.falha { color: #ff9aa8; font-weight: 600; }
+    table { border-collapse: collapse; margin-top: 8px; font-size: 0.9rem; }
+    th, td { padding: 4px 10px; border: 1px solid #25304f; text-align: center; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Testes de validação — Colônia de Formigas</h1>
+  <p>
+    Esta página executa os testes da seção 6 do enunciado com as mesmas classes do simulador
+    (<code>js/graph.js</code>, <code>js/aco.js</code>, <code>js/rng.js</code>). Nos testes controlados,
+    as rotas e os vértices visitados são fornecidos diretamente às funções
+    <code>choiceProbabilities</code> e <code>applyPheromoneUpdate</code>. Valores decimais são
+    comparados com tolerância absoluta de 0,000001.
+    <a href="index.html">← Voltar ao simulador</a>
+  </p>
+  <div id="resumo">Executando…</div>
+  <div id="saida"></div>
+</main>
+
+<script src="js/rng.js"></script>
+<script src="js/graph.js"></script>
+<script src="js/aco.js"></script>
+<script>
+(function () {
+  const TOL = 1e-6;
+  let total = 0, falhas = 0, lista = null;
+  const saida = document.getElementById('saida');
+
+  function secao(titulo) {
+    const s = document.createElement('section');
+    s.innerHTML = '<h2>' + titulo + '</h2>';
+    lista = document.createElement('ul');
+    s.appendChild(lista);
+    saida.appendChild(s);
+    return s;
+  }
+  function item(classe, mensagem) {
+    const li = document.createElement('li');
+    li.className = classe;
+    li.textContent = mensagem;
+    lista.appendChild(li);
+  }
+  const info = m => item('info', m);
+  function verdadeiro(rotulo, cond) {
+    total++;
+    if (!cond) falhas++;
+    item(cond ? 'ok' : 'falha', rotulo);
+  }
+  function igual(rotulo, obtido, esperado) {
+    total++;
+    const ok = JSON.stringify(obtido) === JSON.stringify(esperado);
+    if (!ok) falhas++;
+    item(ok ? 'ok' : 'falha', ok ? `${rotulo}: ${JSON.stringify(obtido)}` : `${rotulo}: obtido ${JSON.stringify(obtido)}, esperado ${JSON.stringify(esperado)}`);
+  }
+  function perto(rotulo, obtido, esperado) {
+    total++;
+    const ok = Math.abs(obtido - esperado) <= TOL;
+    if (!ok) falhas++;
+    item(ok ? 'ok' : 'falha', ok ? `${rotulo}: ${+obtido.toFixed(6)}` : `${rotulo}: obtido ${obtido}, esperado ${esperado}`);
+  }
+
+  // ---- Instância de referência (seção 6.1) ----
+  function grafoReferencia() {
+    const g = new Graph();
+    g.addVertex('A', 0, 0);
+    g.addVertex('B', 3, 0);
+    g.addVertex('C', 3, 4);
+    g.addVertex('D', 0, 4);
+    return g;
+  }
+  const BASE = { alpha: 1, beta: 2, rho: 0.5, tau0: 1, Q: 14, numAnts: 10, numIter: 30, depotId: 'A', seed: 42 };
+  const novo = (params, g) => new AntSystem(g || grafoReferencia(), { ...BASE, ...params }, new SeededRNG((params && params.seed !== undefined) ? params.seed : BASE.seed), null);
+  const idx = letras => letras.split('').map(c => 'ABCD'.indexOf(c));
+  const letras = rota => rota.map(i => 'ABCD'[i]).join(' → ');
+
+  function executar(params) {
+    const a = novo(params);
+    for (let i = 0; i < a.params.numIter; i++) a.runIteration();
+    return a;
+  }
+
+  // ================= 6.1 =================
+  secao('6.1 — Instância de referência e cálculo das rotas');
+  {
+    const g = grafoReferencia();
+    const a = novo({}, g);
+    const d = (x, y) => g.dist[g.indexOf(x)][g.indexOf(y)];
+    igual('Distâncias A-B, A-C, A-D, B-C, B-D, C-D', [d('A','B'), d('A','C'), d('A','D'), d('B','C'), d('B','D'), d('C','D')], [3, 5, 4, 4, 5, 3]);
+    verdadeiro('Distâncias simétricas e d(i, i) = 0', g.dist.every((linha, i) => linha.every((v, j) => v === g.dist[j][i] && (i !== j || v === 0))));
+    const esperado = { ABCDA: 14, ABDCA: 16, ACBDA: 18, ACDBA: 16, ADBCA: 18, ADCBA: 14 };
+    for (const r of Object.keys(esperado)) perto(`Comprimento de ${r.split('').join(' → ')}`, a.routeLength(idx(r)), esperado[r]);
+  }
+
+  // ================= 6.2 =================
+  secao('6.2 — Probabilidades de escolha');
+  {
+    const a = novo({});
+    const tau = a.tau;
+    // Formiga em A, nenhum outro visitado
+    let c = a.choiceProbabilities(0, [true, false, false, false], tau);
+    igual('Em A: candidatos', c.candidates.map(i => 'ABCD'[i]), ['B', 'C', 'D']);
+    perto('w(A,B) = 1/9', c.weights[0], 1 / 9);
+    perto('w(A,C) = 1/25', c.weights[1], 1 / 25);
+    perto('w(A,D) = 1/16', c.weights[2], 1 / 16);
+    perto('p(A,B) = 400/769', c.probs[0], 400 / 769);
+    perto('p(A,C) = 144/769', c.probs[1], 144 / 769);
+    perto('p(A,D) = 225/769', c.probs[2], 225 / 769);
+    perto('Soma das probabilidades', c.probs.reduce((x, y) => x + y, 0), 1);
+    verdadeiro('Nenhum candidato é excluído (todas as probabilidades > 0)', c.probs.every(p => p > 0));
+
+    // Após visitar B
+    c = a.choiceProbabilities(1, [true, true, false, false], tau);
+    igual('Em B (A e B visitados): candidatos', c.candidates.map(i => 'ABCD'[i]), ['C', 'D']);
+    perto('p(B,C) = 25/41', c.probs[0], 25 / 41);
+    perto('p(B,D) = 16/41', c.probs[1], 16 / 41);
+
+    // α = 0 e β = 0, com feromônios diferentes entre as arestas
+    const a0 = novo({ alpha: 0, beta: 0 });
+    const tauDesigual = a0.tau.map((linha, i) => linha.map((v, j) => (i === j ? 0 : 1 + i + j)));
+    c = a0.choiceProbabilities(0, [true, false, false, false], tauDesigual);
+    verdadeiro('α = 0 e β = 0: probabilidades iguais (1/3 cada), apesar de distâncias e feromônios diferentes', c.probs.every(p => Math.abs(p - 1 / 3) <= TOL));
+    c = a0.choiceProbabilities(1, [true, true, false, false], tauDesigual);
+    verdadeiro('α = 0 e β = 0 com dois candidatos: 1/2 cada', c.probs.every(p => Math.abs(p - 0.5) <= TOL));
+
+    // Um único candidato
+    c = a.choiceProbabilities(2, [true, true, true, false], tau);
+    igual('Um candidato restante: probabilidade', c.probs, [1]);
+
+    // O sorteio é proporcional (não escolhe sempre o maior peso)
+    const rng = new SeededRNG(7);
+    const cont = [0, 0, 0];
+    const N = 20000;
+    for (let i = 0; i < N; i++) cont[rng.rouletteSelect([1 / 9, 1 / 25, 1 / 16])]++;
+    info(`Frequências em ${N} sorteios a partir de A: B = ${(cont[0] / N).toFixed(4)}, C = ${(cont[1] / N).toFixed(4)}, D = ${(cont[2] / N).toFixed(4)}`);
+    verdadeiro('Sorteio proporcional: frequências a menos de 0,015 das probabilidades; C e D também são escolhidos', Math.abs(cont[0] / N - 400 / 769) < 0.015 && Math.abs(cont[1] / N - 144 / 769) < 0.015 && Math.abs(cont[2] / N - 225 / 769) < 0.015);
+  }
+
+  // ================= 6.3 =================
+  secao('6.3 — Evaporação e depósito (rota forçada A → B → C → D → A)');
+  {
+    const rota = idx('ABCDA');
+    const forcada = () => ({ route: rota, length: 14 });
+    const porAresta = log => Object.fromEntries(log.map(p => [p.idI + p.idJ, p]));
+
+    // Uma formiga, 1ª iteração
+    let a = novo({ numAnts: 1 });
+    let log = porAresta(a.applyPheromoneUpdate([forcada()]));
+    verdadeiro('Após a evaporação, as seis arestas têm 0,5', Object.values(log).every(p => Math.abs(p.afterEvap - 0.5) <= TOL));
+    for (const e of ['AB', 'BC', 'CD', 'AD']) perto(`${e} (perímetro, inclui o retorno D → A) final`, log[e].final, 1.5);
+    for (const e of ['AC', 'BD']) perto(`${e} (diagonal) final`, log[e].final, 0.5);
+    igual('Log de AB [anterior, após evaporação, depósito, final]', [log.AB.before, log.AB.afterEvap, log.AB.deposit, log.AB.final], [1, 0.5, 1, 1.5]);
+    igual('Log de AC [anterior, após evaporação, depósito, final]', [log.AC.before, log.AC.afterEvap, log.AC.deposit, log.AC.final], [1, 0.5, 0, 0.5]);
+    verdadeiro('Matriz simétrica e diagonal sem feromônio', a.tau.every((l, i) => l.every((v, j) => v === a.tau[j][i] && (i !== j || v === 0))));
+
+    // 2ª iteração com a mesma rota
+    log = porAresta(a.applyPheromoneUpdate([forcada()]));
+    for (const e of ['AB', 'BC', 'CD', 'AD']) perto(`2ª iteração: ${e}`, log[e].final, 1.75);
+    for (const e of ['AC', 'BD']) perto(`2ª iteração: ${e}`, log[e].final, 0.25);
+
+    // Duas formigas na mesma rota, uma iteração
+    a = novo({ numAnts: 2 });
+    log = porAresta(a.applyPheromoneUpdate([forcada(), forcada()]));
+    for (const e of ['AB', 'BC', 'CD', 'AD']) perto(`Duas formigas: ${e}`, log[e].final, 2.5);
+    for (const e of ['AC', 'BD']) perto(`Duas formigas: ${e}`, log[e].final, 0.5);
+
+    // ρ = 0
+    a = novo({ rho: 0, numAnts: 1 });
+    log = a.applyPheromoneUpdate([forcada()]);
+    verdadeiro('ρ = 0%: a evaporação não reduz o feromônio (após evaporação = anterior)', log.every(p => p.afterEvap === p.before));
+    verdadeiro('ρ = 0%: só as arestas com depósito mudam', log.every(p => Math.abs(p.final - (p.before + p.deposit)) <= TOL));
+
+    // Piso numérico
+    a = novo({ rho: 0.9, numAnts: 1, numIter: 200 });
+    for (let i = 0; i < 200; i++) a.applyPheromoneUpdate([forcada()]);
+    const diag = a.tau[0][2];
+    verdadeiro(`Piso numérico: aresta sem depósito fica em 10⁻¹² (obtido ${diag})`, diag === 1e-12);
+  }
+
+  // ================= 6.4 =================
+  secao('6.4 — Execução completa e reprodutibilidade (10 formigas, 30 iterações, α=1, β=2, ρ=50%, τ₀=1, Q=14, semente 42)');
+  {
+    const a = executar({});
+    info(`Melhor rota: ${letras(a.bestRoute)}; comprimento ${a.bestLength}`);
+    igual('Registros de resultados (um por iteração)', a.iterHistory.length, 30);
+    const comprimentos = [...new Set(a.iterHistory.flatMap(h => h.antResults.map(r => Math.round(r.length * 1e6) / 1e6)))].sort((x, y) => x - y);
+    verdadeiro(`Todos os comprimentos são 14, 16 ou 18 (observados: ${comprimentos.join(', ')})`, comprimentos.every(v => [14, 16, 18].includes(v)));
+    verdadeiro('Todas as rotas começam e terminam no depósito e visitam cada vértice uma vez', a.iterHistory.every(h => h.antResults.every(r => r.route.length === 5 && r.route[0] === 0 && r.route[4] === 0 && new Set(r.route).size === 4)));
+    verdadeiro('Melhor distância acumulada nunca aumenta', a.iterHistory.every((h, i) => i === 0 || h.bestLength <= a.iterHistory[i - 1].bestLength));
+    verdadeiro('Melhor distância final é uma rota válida (14, 16 ou 18)', [14, 16, 18].some(v => Math.abs(a.bestLength - v) <= TOL));
+    const assinatura = x => JSON.stringify(x.iterHistory.map(h => [h.iterBestLength, h.avgLength, h.antResults.map(r => r.route.join(''))]));
+    verdadeiro('Mesmos dados, parâmetros e semente → mesmo histórico', assinatura(executar({})) === assinatura(a));
+    // Avançar iteração a iteração dá o mesmo que executar direto
+    const b = novo({});
+    for (let i = 0; i < 12; i++) b.step();
+    while (!b.isFinished()) b.step();
+    verdadeiro('Avançar passo a passo → mesmo histórico da execução contínua', assinatura(b) === assinatura(a));
+    const zero = novo({});
+    verdadeiro('Estado inicial (iteração 0): τ = 1 em todas as arestas e nenhuma rota calculada', zero.bestRoute === null && zero.bestLength === Infinity && zero.tau.every((l, i) => l.every((v, j) => v === (i === j ? 0 : 1))));
+  }
+
+  // ================= 6.5 =================
+  {
+    const s = secao('6.5 — Efeito de β (sementes 1 a 5, demais parâmetros da seção 6.4)');
+    let html = '<table><tr><th>β</th><th>Semente</th><th>Melhor distância final</th><th>Média das formigas na iteração 30</th></tr>';
+    for (const beta of [0, 2]) {
+      const melhores = [];
+      for (const seed of [1, 2, 3, 4, 5]) {
+        const a = executar({ beta, seed });
+        melhores.push(a.bestLength);
+        html += `<tr><td>${beta}</td><td>${seed}</td><td>${a.bestLength}</td><td>${a.iterHistory[29].avgLength.toFixed(2)}</td></tr>`;
+      }
+      const media = melhores.reduce((x, y) => x + y, 0) / 5;
+      info(`β = ${beta}: média da melhor distância final = ${media.toFixed(2)}; execuções que atingiram 14 = ${melhores.filter(v => Math.abs(v - 14) <= TOL).length} de 5`);
+      verdadeiro(`β = ${beta}: todos os resultados são rotas válidas (14, 16 ou 18)`, melhores.every(v => [14, 16, 18].some(r => Math.abs(v - r) <= TOL)));
+    }
+    s.insertAdjacentHTML('beforeend', html + '</table>');
+  }
+
+  secao('6.5 — Entradas inválidas (validação do grafo)');
+  {
+    const g = grafoReferencia();
+    verdadeiro('Coordenadas duplicadas são recusadas', typeof g.addVertex('E', 3, 4) === 'string');
+    verdadeiro('Identificador repetido é recusado', typeof g.addVertex('A', 9, 9) === 'string');
+    verdadeiro('Menos de quatro vértices: remoção recusada', typeof g.removeVertex('D') === 'string');
+    verdadeiro('Campo vazio é recusado', typeof g.addVertex('E', '', 5) === 'string');
+    verdadeiro('Coordenada fora de 0–1000 é recusada', typeof g.addVertex('E', 1001, 5) === 'string' && typeof g.addVertex('E', -1, 5) === 'string');
+    verdadeiro('Coordenada com três casas decimais é recusada', typeof g.addVertex('E', '1.234', 5) === 'string');
+    verdadeiro('Coordenada com duas casas decimais (4.35; 19.99) é aceita', g.addVertex('E', '4.35', '19.99') === null);
+    info('Os intervalos dos parâmetros (formigas, iterações, α, β, ρ, τ₀, Q, semente) são validados na tela do simulador, em _validateParams (js/main.js).');
+  }
+
+  const resumo = document.getElementById('resumo');
+  resumo.textContent = falhas === 0 ? `${total} de ${total} verificações passaram.` : `${falhas} de ${total} verificações falharam.`;
+  resumo.className = falhas === 0 ? 'ok' : 'falha';
+  window.resultadoDosTestes = { total, falhas };
+})();
+</script>
+</body>
+</html>

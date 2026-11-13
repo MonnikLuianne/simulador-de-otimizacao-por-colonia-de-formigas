@@ -264,9 +264,10 @@ function _getParams() {
 function _validateParams(p) {
   // Campos inteiros: recusa decimais em vez de truncar (10.7 não vira 10)
   const inteiro = /^\d+$/;
+  const inteiroComSinal = /^-?\d+$/; // a semente pode ser negativa
   if (!inteiro.test(p.raw.numAnts)) return 'Formigas: informe um inteiro entre 1 e 100.';
   if (!inteiro.test(p.raw.numIter)) return 'Iterações: informe um inteiro entre 1 e 200.';
-  if (!inteiro.test(p.raw.seed)) return 'A semente aleatória deve ser um inteiro não negativo.';
+  if (!inteiroComSinal.test(p.raw.seed)) return 'A semente aleatória deve ser um número inteiro.';
 
   if (!Number.isFinite(p.alpha) || p.alpha < 0 || p.alpha > 5) {
     return 'α deve estar entre 0 e 5.';
@@ -296,8 +297,8 @@ function _validateParams(p) {
     return 'Iterações: informe um inteiro entre 1 e 200.';
   }
 
-  if (!Number.isInteger(p.seed) || p.seed < 0) {
-    return 'A semente aleatória deve ser um inteiro não negativo.';
+  if (!Number.isSafeInteger(p.seed)) {
+    return 'A semente aleatória deve ser um número inteiro.';
   }
 
   if (graph.n < 4 || graph.n > 12) {

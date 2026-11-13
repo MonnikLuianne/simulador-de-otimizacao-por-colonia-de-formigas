@@ -63,7 +63,7 @@ A cor de cada aresta segue uma escala **logarítmica fixa**: a intensidade é 1 
 | Q | Constante de depósito de feromônio | 0,01 – 10000 |
 | Formigas | Número de formigas por iteração | 1 – 100 |
 | Iterações | Número total de iterações | 1 – 200 |
-| Semente | Semente do gerador pseudoaleatório (reprodutibilidade) | ≥ 0 |
+| Semente | Semente do gerador pseudoaleatório (reprodutibilidade) | qualquer inteiro |
 | Depósito | Vértice de partida e retorno obrigatório | — |
 
 ---
@@ -79,6 +79,8 @@ O algoritmo ACO é implementado integralmente no projeto, sem uso de bibliotecas
 ---
 
 ## Resultados dos testes
+
+Todos os testes abaixo podem ser refeitos abrindo a página **[`testes.html`](https://monnikluianne.github.io/simulador-de-otimizacao-por-colonia-de-formigas/testes.html)** (botão "🧪 Testes" no topo do simulador). Ela usa as mesmas classes do simulador e mostra o que passou ou falhou, com tolerância de 0,000001. Nos testes controlados, os vértices visitados e as rotas são fornecidos diretamente às funções `choiceProbabilities` e `applyPheromoneUpdate` de `js/aco.js`; não há campos extras na interface.
 
 ### 6.1 — Instância de referência (A, B, C, D)
 
@@ -193,7 +195,7 @@ Validações de entradas inválidas:
 
 ```
 index.html          — interface e estrutura da página
-css/style.css       — estilos auxiliares
+testes.html         — testes de validação da seção 6 (executados no navegador)
 js/graph.js         — vértices e distâncias euclidianas
 js/aco.js           — implementação do Ant System
 js/rng.js           — gerador pseudoaleatório com semente (Mulberry32)

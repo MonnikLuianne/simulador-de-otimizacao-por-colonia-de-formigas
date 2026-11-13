@@ -37,6 +37,37 @@ class AntSystem {
     return tauPow * etaPow;
   }
 
+  // ── Candidatos, pesos e probabilidades de escolha a partir de `current` ─────
+  // Só entram os vértices ainda não visitados: p(i,j) = w(i,j) / Σ w(i,u).
+  choiceProbabilities(current, visited, tau) {
+    const n = this.graph.n;
+    const candidates = [];
+    const weights = [];
+
+    for (let j = 0; j < n; j++) {
+      if (!visited[j]) {
+        candidates.push(j);
+        weights.push(this._weight(current, j, tau));
+      }
+    }
+
+    const totalW = weights.reduce((a, b) => a + b, 0);
+    const probs = (totalW > 0)
+      ? weights.map(w => w / totalW)
+      : weights.map(() => 1 / candidates.length); // todos os pesos nulos: uniforme
+
+    return { candidates, weights, probs, totalW };
+  }
+
+  /** Comprimento de uma rota (inclui o retorno ao depósito, se estiver na rota). */
+  routeLength(route) {
+    let length = 0;
+    for (let k = 0; k < route.length - 1; k++) {
+      length += this.graph.dist[route[k]][route[k + 1]];
+    }
+    return length;
+  }
+
   // ── Constrói rota de uma formiga usando o snapshot de feromônio ─────────────
   _buildRoute(depotIdx, antIndex, tauSnap) {
     const n = this.graph.n;
@@ -47,21 +78,8 @@ class AntSystem {
     let current = depotIdx;
 
     while (route.length < n) {
-      const candidates = [];
-      const weights = [];
-
-      for (let j = 0; j < n; j++) {
-        if (!visited[j]) {
-          candidates.push(j);
-          weights.push(this._weight(current, j, tauSnap));
-        }
-      }
-
-      // Probabilidades p(i,j) = w(i,j) / Σw
-      const totalW = weights.reduce((a, b) => a + b, 0);
-      const probs = (totalW > 0)
-        ? weights.map(w => w / totalW)
-        : weights.map(() => 1 / candidates.length); // α=β=0: uniforme
+      const { candidates, weights, probs, totalW } =
+        this.choiceProbabilities(current, visited, tauSnap);
 
       // Sorteio por roleta usando os pesos brutos (ou uniforme se todos zero)
       const chosenLocal = this.rng.rouletteSelect(
@@ -91,33 +109,18 @@ class AntSystem {
     route.push(depotIdx);
 
     // Comprimento total incluindo o retorno
-    let length = 0;
-    for (let k = 0; k < route.length - 1; k++) {
-      length += this.graph.dist[route[k]][route[k + 1]];
-    }
+    const length = this.routeLength(route);
 
     return { route, length, steps };
   }
 
-  // ── Executa uma iteração completa ────────────────────────────────────────────
-  runIteration() {
-    const { numAnts, rho, Q } = this.params;
-    const depotIdx = this.graph.indexOf(this.params.depotId);
+  // ── Evaporação e depósito ───────────────────────────────────────────────────
+  // τ_novo(i,j) = (1 − ρ) × τ_antigo(i,j) + Σ Δτk(i,j), com Δτk = Q / Lk nas
+  // arestas percorridas pela formiga k. Recebe as rotas já construídas
+  // ([{ route, length }]) e devolve o registro por aresta.
+  applyPheromoneUpdate(antResults) {
+    const { rho, Q } = this.params;
     const n = this.graph.n;
-
-    // Snapshot: todas as formigas usam o tau do FIM da iteração anterior
-    const tauSnap = this.tau.map(row => row.slice());
-
-    // Constrói rotas de todas as formigas com o mesmo snapshot
-    const antResults = [];
-    for (let k = 0; k < numAnts; k++) {
-      antResults.push(this._buildRoute(depotIdx, k, tauSnap));
-    }
-
-    // Melhor da iteração
-    const iterBest = antResults.reduce((a, b) => a.length < b.length ? a : b);
-
-    // Evaporação + depósito (somente depois de todas as formigas terminarem)
     const pheromoneLog = [];
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
@@ -151,6 +154,30 @@ class AntSystem {
         });
       }
     }
+
+    return pheromoneLog;
+  }
+
+  // ── Executa uma iteração completa ────────────────────────────────────────────
+  runIteration() {
+    const { numAnts, rho, Q } = this.params;
+    const depotIdx = this.graph.indexOf(this.params.depotId);
+    const n = this.graph.n;
+
+    // Snapshot: todas as formigas usam o tau do FIM da iteração anterior
+    const tauSnap = this.tau.map(row => row.slice());
+
+    // Constrói rotas de todas as formigas com o mesmo snapshot
+    const antResults = [];
+    for (let k = 0; k < numAnts; k++) {
+      antResults.push(this._buildRoute(depotIdx, k, tauSnap));
+    }
+
+    // Melhor da iteração
+    const iterBest = antResults.reduce((a, b) => a.length < b.length ? a : b);
+
+    // Evaporação + depósito (somente depois de todas as formigas terminarem)
+    const pheromoneLog = this.applyPheromoneUpdate(antResults);
 
     // Atualiza melhor global (nunca aumenta)
     if (iterBest.length < this.bestLength) {
