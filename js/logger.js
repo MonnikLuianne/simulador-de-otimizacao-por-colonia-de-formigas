@@ -1,6 +1,15 @@
 /**
  * logger.js — Registro de iterações, rotas e feromônios
  */
+/**
+ * Formata feromônio para exibição: valores muito pequenos (ex.: 1e-9) aparecem
+ * em notação científica para não serem confundidos com zero. Os cálculos
+ * internos não são arredondados.
+ */
+function fmtTauLog(v) {
+  return (v !== 0 && Math.abs(v) < 1e-4) ? v.toExponential(3) : v.toFixed(6);
+}
+
 class Logger {
   constructor(tableBodyId, logPanelId) {
     this.tbody = document.getElementById(tableBodyId);
@@ -27,7 +36,7 @@ class Logger {
   logPheromone(pheromoneLog) {
     if (!this.logPanel) return;
     const lines = pheromoneLog.map(p =>
-      `  ${p.idI}↔${p.idJ}: anterior ${p.before.toFixed(6)} | após evap ${p.afterEvap.toFixed(6)} | depósito ${p.deposit.toFixed(6)} | final ${p.final.toFixed(6)}`
+      `  ${p.idI}↔${p.idJ}: anterior ${fmtTauLog(p.before)} | após evap ${fmtTauLog(p.afterEvap)} | depósito ${fmtTauLog(p.deposit)} | final ${fmtTauLog(p.final)}`
     );
     this._appendLog('🧪 Feromônios:\n' + lines.join('\n'));
   }
