@@ -222,7 +222,10 @@
     .hist-table th:first-child, .hist-table td:first-child { text-align: center; }
     .hist-table td { padding: 3px 5px; border-bottom: 1px solid #0d0d20; text-align: right; font-family: var(--font-mono); }
     .hist-table tr:hover td { background: #111128; }
-    .route-cell { text-align: left !important; color: var(--muted); font-size: 9px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* rota completa em uma linha própria, abaixo dos números da iteração */
+    .hist-table tr.iter-nums td { border-bottom: none; padding-bottom: 1px; }
+    .hist-table tr.iter-route td.route-cell { text-align: left !important; color: var(--muted); font-size: 10px; padding: 0 5px 5px 18px; white-space: normal; word-break: break-word; line-height: 1.4; }
+    .hist-table tr.iter-route td.route-cell::before { content: "↳ "; color: var(--accent2); }
 
     .options-row { display: flex; flex-direction: column; gap: 6px; }
     .aviso-visualizacao { position: absolute; bottom: 12px; right: 12px; max-width: 45%; background: rgba(42,21,5,0.92); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 4px 12px; font-size: 11px; z-index: 9; text-align: center; }
@@ -500,7 +503,9 @@
               <th>Melhor it.</th>
               <th>Média</th>
               <th>Melhor acum.</th>
-              <th style="text-align:left">Melhor rota da iteração</th>
+            </tr>
+            <tr>
+              <th colspan="4" style="text-align:left">↳ Melhor rota da iteração</th>
             </tr>
           </thead>
           <tbody id="history-tbody"></tbody>
@@ -544,13 +549,13 @@
 </div>
 
 
-<script src="js/rng.js?v=7"></script>
-<script src="js/graph.js?v=7"></script>
-<script src="js/aco.js?v=7"></script>
-<script src="js/renderer2d.js?v=7"></script>
-<script src="js/charts.js?v=7"></script>
-<script src="js/logger.js?v=7"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/rng.js?v=8"></script>
+<script src="js/graph.js?v=8"></script>
+<script src="js/aco.js?v=8"></script>
+<script src="js/renderer2d.js?v=8"></script>
+<script src="js/charts.js?v=8"></script>
+<script src="js/logger.js?v=8"></script>
+<script src="js/main.js?v=8"></script>
 
 <script>
   // ── Contador de vértices ──────────────────────────────────────────
