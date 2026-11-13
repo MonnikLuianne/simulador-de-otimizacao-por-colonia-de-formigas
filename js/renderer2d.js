@@ -215,6 +215,33 @@ class Renderer2D {
     this.pan = { x: 0, y: 0 };
   }
 
+  // ── Paleta do tema (claro é o padrão; o tema é lido a cada quadro) ─────────
+  _pal() {
+    const escuro = document.documentElement.dataset.tema === 'escuro';
+    if (escuro) return {
+      escuro: true,
+      fundo0: '#0d0d22', fundo1: '#05050d', grade: 'rgba(80,90,160,0.07)',
+      rotaBrilho: 'rgba(0,255,170,0.7)', rotaLarga: 'rgba(0,255,170,0.35)', rota: 'rgba(0,255,170,0.95)',
+      sel: '#ffffff', selBrilho: 'rgba(255,255,255,0.8)',
+      formiga: '#ffd23f', formigaBrilho: 'rgba(255,190,0,0.9)',
+      no0: '#bfe3ff', no1: '#2f86e6', noBorda: '#e2f2ff', noBrilho: 'rgba(60,160,255,0.7)',
+      dep0: '#ffc38a', dep1: '#ff6600', depBorda: '#ffd2a8', depBrilho: 'rgba(255,120,0,0.8)', depAnel: 'rgba(255,160,77,0.55)',
+      rotFundo: 'rgba(10,14,34,0.85)', rotBorda: 'rgba(120,170,230,0.55)', rotTexto: '#e6f3ff',
+      depRotFundo: 'rgba(60,25,5,0.88)', depRotBorda: 'rgba(255,160,77,0.8)', depRotTexto: '#ffb46b',
+    };
+    return {
+      escuro: false,
+      fundo0: '#ffffff', fundo1: '#eef2f7', grade: 'rgba(100,116,139,0.10)',
+      rotaBrilho: 'rgba(5,150,105,0.35)', rotaLarga: 'rgba(16,185,129,0.25)', rota: '#047857',
+      sel: '#1d4ed8', selBrilho: 'rgba(29,78,216,0.45)',
+      formiga: '#d97706', formigaBrilho: 'rgba(217,119,6,0.5)',
+      no0: '#93c5fd', no1: '#1d4ed8', noBorda: '#ffffff', noBrilho: 'rgba(29,78,216,0.35)',
+      dep0: '#fdba74', dep1: '#c2410c', depBorda: '#ffffff', depBrilho: 'rgba(194,65,12,0.4)', depAnel: 'rgba(194,65,12,0.55)',
+      rotFundo: 'rgba(255,255,255,0.96)', rotBorda: 'rgba(71,85,105,0.5)', rotTexto: '#0f172a',
+      depRotFundo: '#fff7ed', depRotBorda: '#c2410c', depRotTexto: '#9a3412',
+    };
+  }
+
   // ── Escala de feromônio (logarítmica) ─────────────────────────────────────
   _tauStats(tau, graph) {
     let mn = Infinity, mx = -Infinity;
@@ -233,11 +260,19 @@ class Renderer2D {
     return Math.max(0, Math.min(1, t));
   }
 
+  /** Cor da aresta pelo feromônio; acompanha a barra de legenda de cada tema. */
   _tauColor(t, alpha) {
-    const r = Math.round(30 + t * 225);
-    const g = Math.round(40 + t * 130);
-    const b = Math.round(180 - t * 150);
-    return `rgba(${r},${g},${b},${alpha})`;
+    if (this._paleta && this._paleta.escuro) {
+      const r = Math.round(30 + t * 225);
+      const g = Math.round(40 + t * 130);
+      const b = Math.round(180 - t * 150);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+    // claro: cinza-azulado (#cbd5e1) → âmbar (#f59e0b) → vermelho (#b91c1c)
+    const A = [203, 213, 225], B = [245, 158, 11], C = [185, 28, 28];
+    const [c0, c1, u] = t < 0.5 ? [A, B, t / 0.5] : [B, C, (t - 0.5) / 0.5];
+    const m = k => Math.round(c0[k] + (c1[k] - c0[k]) * u);
+    return `rgba(${m(0)},${m(1)},${m(2)},${alpha})`;
   }
 
   // ── Mouse: arrastar a vista e consultar arestas ────────────────────────────
@@ -310,14 +345,15 @@ class Renderer2D {
 
   _fundo() {
     const ctx = this.ctx;
+    const pal = this._paleta;
     const grad = ctx.createRadialGradient(this.W / 2, this.H / 2, 0, this.W / 2, this.H / 2, Math.max(this.W, this.H) * 0.7);
-    grad.addColorStop(0, '#0d0d22');
-    grad.addColorStop(1, '#05050d');
+    grad.addColorStop(0, pal.fundo0);
+    grad.addColorStop(1, pal.fundo1);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, this.W, this.H);
 
     // grade discreta, apenas decorativa
-    ctx.strokeStyle = 'rgba(80,90,160,0.07)';
+    ctx.strokeStyle = pal.grade;
     ctx.lineWidth = 1;
     const passo = 32;
     ctx.beginPath();
@@ -328,6 +364,8 @@ class Renderer2D {
 
   _draw() {
     const ctx = this.ctx;
+    this._paleta = this._pal();
+    const pal = this._paleta;
     this._fundo();
     if (!this.graph || !this.graph.n || !this.currentTau) return;
 
@@ -355,7 +393,7 @@ class Renderer2D {
       ctx.beginPath();
       ctx.moveTo(P[a.i].x, P[a.i].y);
       ctx.lineTo(P[a.j].x, P[a.j].y);
-      ctx.strokeStyle = this._tauColor(a.t, 0.18 + a.t * 0.72);
+      ctx.strokeStyle = this._tauColor(a.t, pal.escuro ? 0.18 + a.t * 0.72 : 0.45 + a.t * 0.55);
       ctx.lineWidth = 0.8 + a.t * (espMax - 0.8);
       ctx.stroke();
     }
@@ -371,14 +409,14 @@ class Renderer2D {
       };
       ctx.save();
       ctx.lineJoin = 'round';
-      ctx.shadowColor = 'rgba(0,255,170,0.7)';
+      ctx.shadowColor = pal.rotaBrilho;
       ctx.shadowBlur = 12;
-      ctx.strokeStyle = 'rgba(0,255,170,0.35)';
+      ctx.strokeStyle = pal.rotaLarga;
       ctx.lineWidth = espMax + 4;
       tracar(); ctx.stroke();
       ctx.restore();
-      ctx.strokeStyle = 'rgba(0,255,170,0.95)';
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = pal.rota;
+      ctx.lineWidth = pal.escuro ? 2.2 : 2.6;
       ctx.lineJoin = 'round';
       tracar(); ctx.stroke();
     }
@@ -389,9 +427,9 @@ class Renderer2D {
       const [a, b] = key.split('-').map(Number);
       if (!P[a] || !P[b]) continue;
       ctx.save();
-      ctx.shadowColor = 'rgba(255,255,255,0.8)';
+      ctx.shadowColor = pal.selBrilho;
       ctx.shadowBlur = 8;
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = pal.sel;
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(P[a].x, P[a].y); ctx.lineTo(P[b].x, P[b].y); ctx.stroke();
       ctx.restore();
@@ -399,8 +437,8 @@ class Renderer2D {
 
     // 4) Formigas (opcional, apenas visual)
     ctx.save();
-    ctx.fillStyle = '#ffd23f';
-    ctx.shadowColor = 'rgba(255,190,0,0.9)';
+    ctx.fillStyle = pal.formiga;
+    ctx.shadowColor = pal.formigaBrilho;
     ctx.shadowBlur = 6;
     for (const anim of this.antAnimations) {
       const a = anim.path[anim.segIndex], b = anim.path[anim.segIndex + 1];
@@ -420,21 +458,21 @@ class Renderer2D {
       const p = P[i];
 
       ctx.save();
-      ctx.shadowColor = isDepot ? 'rgba(255,120,0,0.8)' : 'rgba(60,160,255,0.7)';
-      ctx.shadowBlur = 14;
+      ctx.shadowColor = isDepot ? pal.depBrilho : pal.noBrilho;
+      ctx.shadowBlur = pal.escuro ? 14 : 8;
       const grad = ctx.createRadialGradient(p.x - r * 0.35, p.y - r * 0.35, r * 0.1, p.x, p.y, r);
-      grad.addColorStop(0, isDepot ? '#ffc38a' : '#bfe3ff');
-      grad.addColorStop(1, isDepot ? '#ff6600' : '#2f86e6');
+      grad.addColorStop(0, isDepot ? pal.dep0 : pal.no0);
+      grad.addColorStop(1, isDepot ? pal.dep1 : pal.no1);
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.fill();
       ctx.restore();
 
       ctx.lineWidth = 2;
-      ctx.strokeStyle = isDepot ? '#ffd2a8' : '#e2f2ff';
+      ctx.strokeStyle = isDepot ? pal.depBorda : pal.noBorda;
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.stroke();
 
       if (isDepot) { // anel extra no depósito
-        ctx.strokeStyle = 'rgba(255,160,77,0.55)';
+        ctx.strokeStyle = pal.depAnel;
         ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, 2 * Math.PI); ctx.stroke();
       }
@@ -460,13 +498,13 @@ class Renderer2D {
       lx = Math.max(w / 2 + 2, Math.min(this.W - w / 2 - 2, lx));
       ly = Math.max(h / 2 + 2, Math.min(this.H - h / 2 - 2, ly));
 
-      ctx.fillStyle = isDepot ? 'rgba(60,25,5,0.88)' : 'rgba(10,14,34,0.85)';
-      ctx.strokeStyle = isDepot ? 'rgba(255,160,77,0.8)' : 'rgba(120,170,230,0.55)';
+      ctx.fillStyle = isDepot ? pal.depRotFundo : pal.rotFundo;
+      ctx.strokeStyle = isDepot ? pal.depRotBorda : pal.rotBorda;
       ctx.lineWidth = 1;
       this._retanguloArredondado(lx - w / 2, ly - h / 2, w, h, 6);
       ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = isDepot ? '#ffb46b' : '#e6f3ff';
+      ctx.fillStyle = isDepot ? pal.depRotTexto : pal.rotTexto;
       ctx.fillText(texto, lx, ly + 0.5);
     });
   }
